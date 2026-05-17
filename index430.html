@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Wheel - Absolute Admin Session Lock</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        h3 { margin: 3px 0; color: #f1c40f; text-align: center; font-size: 18px; }
+
+        /* Public Navigation Bar (User Screens) */
+        .public-navigation {
+            display: flex;
+            width: 100%;
+            max-width: 440px;
+            background: #222;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 8px;
+            border: 1px solid #333;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: #222;
+            color: #aaa;
+            border: none;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: center;
+        }
+        .tab-btn.active { background: #27ae60; color: white; }
+        .admin-gate-btn { background: #e67e22; color: white; border: none; padding: 0 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
+
+        /* Admin Inner Navigation Tabs (For Screen 3 & 4) */
+        .admin-internal-tabs {
+            display: none;
+            width: 100%;
+            max-width: 440px;
+            background: #2c3e50;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 6px;
+            border: 1px solid #34495e;
+        }
+        .admin-tab-item {
+            flex: 1; padding: 8px; background: #2c3e50; color: #bdc3c7;
+            border: none; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center;
+        }
+        .admin-tab-item.active { background: #e67e22; color: white; }
+
+        /* Main Screen Container */
+        .screen-container {
+            width: 100%;
+            max-width: 440px;
+            height: 64vh;
+            display: none; 
+            background: #1e1e1e;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            box-sizing: border-box;
+        }
+
+        /* Wheel Graphic Area */
+        .wheel-wrapper {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 2px 0;
+        }
+        .pointer-container {
+            position: absolute;
+            width: 20px; height: 20px; background: #f39c12;
+            border-radius: 50%; z-index: 20; border: 2px solid #fff;
+        }
+        .pointer-container::after {
+            content: ''; position: absolute; top: 30%; left: 50%; transform: translateX(-50%);
+            width: 8px; height: 45px; background: linear-gradient(to bottom, #ff0000, #f39c12);
+            clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
+        }
+        canvas { border-radius: 50%; border: 5px solid #222; transition: transform 4s cubic-bezier(0.15, 0.85, 0.35, 1); }
+
+        /* Dashboard Boxes */
+        .display-board {
+            width: 100%; background: #292929; padding: 6px;
+            border-radius: 8px; margin: 2px 0; font-size: 12px; box-sizing: border-box;
+        }
+        .display-board span { font-weight: bold; color: #2ecc71; }
+        #result { font-size: 16px; font-weight: bold; color: #f1c40f; text-align: center; }
+
+        /* Keypad Responsive Grid */
+        .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 100%; max-height: 130px; overflow-y: auto; padding-right: 2px; }
+        .key-btn {
+            background: #333; color: white; border: 1px solid #555;
+            padding: 6px; font-size: 14px; font-weight: bold; border-radius: 5px; cursor: pointer;
+        }
+        .key-btn.sold { background: #2980b9; color: white; border-color: #3498db; cursor: not-allowed; }
+
+        /* Admin Matrix View Keypad style */
+        .admin-matrix-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 100%; max-height: 85px; overflow-y: auto; }
+        .matrix-tag { padding: 4px; border-radius: 4px; text-align: center; font-size: 11px; font-weight: bold; border: 1px solid #444; }
+        .matrix-tag.available { background: #222; color: #888; }
+        .matrix-tag.bought { background: #2980b9; color: white; border-color: #3498db; animation: pulse 1.5s infinite; }
+
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
+
+        button.action-btn {
+            width: 100%; padding: 10px; background: #27ae60; border: none;
+            color: white; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer;
+        }
+
+        /* History & Logger Lists */
+        .history-box { width: 100%; height: 80%; background: #111; border: 1px solid #333; padding: 8px; border-radius: 8px; overflow-y: auto; box-sizing: border-box; }
+        .history-item { background: #222; border-left: 4px solid #f1c40f; padding: 6px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; line-height: 1.4; }
+
+        /* Admin Layout Settings Elements */
+        .setting-section { width: 100%; background: #222; padding: 6px; border-radius: 8px; box-sizing: border-box; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; margin: 5px 0; font-size: 12px; }
+        .setting-ctrl { display: flex; align-items: center; gap: 4px; }
+        .setting-ctrl button {
+            background: #333; border: 1px solid #555; color: white;
+            width: 24px; height: 24px; font-weight: bold; cursor: pointer; border-radius: 4px;
+        }
+        .setting-ctrl span { font-weight: bold; min-width: 25px; text-align: center; color: #f1c40f; }
+
+        .winner-panel-alert { background: #2c3e50; border: 1px solid #f1c40f; border-radius: 6px; padding: 6px; margin: 2px 0; font-size: 11px; width: 100%; box-sizing: border-box; }
+        .sales-box { background: #111; border: 1px solid #333; padding: 4px; border-radius: 6px; width: 100%; height: 40px; overflow-y: auto; font-size: 10px; box-sizing: border-box; }
+        .ticket-tag { display: inline-block; background: #2980b9; color: white; padding: 2px 4px; border-radius: 3px; margin: 1px; font-size: 10px; }
+
+        .interactive-feedback { display: flex; gap: 8px; margin: 2px 0; width: 100%; }
+        .feedback-btn { background: #333; border: 1px solid #444; color: white; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-weight: bold; font-size: 11px; }
+        .reply-container { display: flex; width: 100%; gap: 4px; }
+        .reply-input { flex: 1; background: #222; border: 1px solid #444; color: white; padding: 5px; border-radius: 6px; font-size: 12px; }
+        .reply-send-btn { background: #2980b9; border: none; color: white; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
+
+        .broadcast-form { width: 100%; background: #222; padding: 5px; border-radius: 8px; margin-top: 2px; box-sizing: border-box; }
+        .broadcast-input { width: 100%; background: #111; border: 1px solid #444; color: white; padding: 5px; border-radius: 6px; box-sizing: border-box; font-size: 12px; margin-bottom: 2px; }
+
+        /* Search Results Panel Layout */
+        .search-results-box {
+            background: #111; border: 1px solid #e67e22; border-radius: 6px;
+            padding: 6px; width: 100%; min-height: 70px; font-size: 11px; box-sizing: border-box; overflow-y: auto;
+        }
+
+        /* Broadcast logs panel */
+        .msg-box { width: 100%; max-width: 440px; background: #1a1a1a; border-left: 4px solid #3498db; padding: 6px; margin-top: 8px; border-radius: 4px; box-sizing: border-box; height: 9vh; }
+        .msg-log { max-height: 40px; overflow-y: auto; font-size: 11px; color: #ccc; }
+    </style>
+</head>
+<body>
+
+    <div class="public-navigation" id="public-main-nav">
+        <button class="tab-btn active" id="tab-user-terminal" onclick="switchUserScreen('user-terminal-screen', this)">USER TERMINAL</button>
+        <button class="tab-btn" id="tab-live-wheel" onclick="switchUserScreen('live-wheel-screen', this)">LIVE WHEEL</button>
+        <button class="admin-gate-btn" onclick="accessProtectedAdminMode()">⚙️ ADMIN</button>
+    </div>
+
+    <div class="admin-internal-tabs" id="admin-internal-nav">
+        <button class="admin-tab-item active" id="tab-adm-ctrl" onclick="switchAdminSubScreen('admin-control-screen', this)">🎮 ADMIN CONTROL (P3)</button>
+        <button class="admin-tab-item" id="tab-adm-sett" onclick="switchAdminSubScreen('admin-settings-screen', this)">🛠️ ADMIN SETTINGS (P4)</button>
+        <button class="admin-gate-btn" style="background:#c0392b;" onclick="exitAdminSessionMode()">🔒 EXIT</button>
+    </div>
+
+    <div class="screen-container" id="user-terminal-screen" style="display: flex;">
+        <h3>USER TICKET TERMINAL</h3>
+        <div class="display-board">
+            <div>User ID: <span style="color: #fff;" id="display-user-id">USR-9841</span></div>
+            <div>Telegram: <span style="color: #3498db;" id="display-tg-username">@telegram_user</span></div>
+            <hr style="border:0; border-top:1px solid #444; margin:4px 0;">
+            <div>Wallet Balance: <span id="user-wallet" style="color:#2ecc71; font-size:15px;">500.00</span> ETB</div>
+            <div>Price Per Ticket: <span id="current-bet-cost" style="color:#f1c40f;">10.00</span> ETB</div>
+        </div>
+        <div style="font-size:11px; color:#aaa; text-align:center;">Lakkofsa barbaaddan cuqaasanii battalatti bitadhaa:</div>
+        <div class="keypad" id="ticket-keypad"></div>
+        <button class="action-btn" style="background:#e67e22;" onclick="document.getElementById('tab-live-wheel').click()">
+            NEXT -> VIEW LIVE WHEEL
+        </button>
+    </div>
+
+    <div class="screen-container" id="live-wheel-screen">
+        <h3>LIVE WHEEL GAME</h3>
+        <div id="result">WAITING FOR TICKET SPIN</div>
+        <div class="wheel-wrapper">
+            <div class="pointer-container"></div>
+            <canvas id="wheel" width="160" height="160"></canvas>
+        </div>
+        <div class="display-board" style="padding: 4px; display:flex; justify-content:space-around;">
+            <div>Prize Pool: <span id="prize-pool">0.00</span> ETB</div>
+            <div>Timer Clock: <span id="timer-display">30</span>s</div>
+        </div>
+        <div style="width: 100%;">
+            <div class="interactive-feedback">
+                <button class="feedback-btn" onclick="triggerEngagement('like')">👍 Like (<span id="like-counter">0</span>)</button>
+                <button class="feedback-btn" onclick="triggerEngagement('dislike')">👎 Dislike (<span id="dislike-counter">0</span>)</button>
+                <button class="feedback-btn" style="background:#2980b9; color:white; margin-left:auto;" onclick="switchUserScreen('game-history-screen', null)">📜 Game History</button>
+            </div>
+            <div class="reply-container">
+                <input type="text" class="reply-input" id="user-reply-text" placeholder="Yaada kee asitti barreessi...">
+                <button class="reply-send-btn" onclick="submitUserReplyText()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="screen-container" id="game-history-screen">
+        <h3>📜 GAME HISTORY LOGS</h3>
+        <div class="history-box" id="history-logs-container"></div>
+        <button class="action-btn" style="background:#555;" onclick="switchUserScreen('live-wheel-screen', document.getElementById('tab-live-wheel'))">
+            <- Back To Live Game
+        </button>
+    </div>
+
+    <div class="screen-container" id="admin-control-screen" style="border: 2px solid #e67e22;">
+        <h3 style="color: #e67e22;">🎮 ADMIN LIVE CONTROL (P3)</h3>
+        
+        <div class="setting-section" style="background: #111; border: 1px dashed #e67e22;">
+            <div style="color: #e67e22; font-size:11px; font-weight:bold; margin-bottom:3px; text-align:center;">📊 LIVE TICKETS TRACKER KEYPAD:</div>
+            <div class="admin-matrix-grid" id="admin-live-tickets-matrix"></div>
+        </div>
+
+        <div class="winner-panel-alert" style="margin-top:2px;">
+            <div style="color:#f1c40f; font-weight:bold; text-align:center; border-bottom:1px solid #555; padding-bottom:1px; margin-bottom:2px; font-size:10px;">🏆 LAST WINNER REAL-TIME</div>
+            <div id="adm-winner-id-log">User ID: <span style="color:#aaa;">No game yet</span></div>
+            <div id="adm-winner-tg-log">Telegram: <span style="color:#aaa;">No game yet</span></div>
+            <div id="adm-winner-prize-log" style="margin-bottom:2px;">Prize Amount: <span style="color:#aaa;">0.00 ETB</span></div>
+            <button id="adm-add-prize-btn" class="action-btn" style="background:#27ae60; padding:4px; font-size:10px; display:none;" onclick="approveAndCreditWinnerWalletDirectly()">📥 AUTO-ADD PRIZE TO USER WALLET</button>
+        </div>
+
+        <div class="broadcast-form">
+            <input type="text" class="broadcast-input" id="admin-broadcast-msg" placeholder="Waan tamsaasuu barbaaddan barreessaa...">
+            <button class="action-btn" style="background:#3498db; padding:4px; font-size:11px;" onclick="transmitLiveBroadcast()">📢 SEND BROADCAST</button>
+        </div>
+
+        <button class="action-btn" style="background: #e67e22; padding:10px;" onclick="executeAdminLiveSpinAction()">⚡ SPIN WHEEL NOW</button>
+    </div>
+
+    <div class="screen-container" id="admin-settings-screen" style="border: 2px solid #9b59b6;">
+        <h3 style="color: #9b59b6;">🛠️ SYSTEM SETUP & SEARCH (P4)</h3>
+        
+        <div class="setting-section">
+            <div class="setting-row">
+                <label>🔢 Range Lakkofsa Keypad & Gengoo:</label>
+                <div class="setting-ctrl">
+                    <button onclick="adjustWheelRangeSetting(-1)">-</button>
+                    <span id="adm-setting-range-lbl">12</span>
+                    <button onclick="adjustWheelRangeSetting(1)">+</button>
+                </div>
+            </div>
+            <div class="setting-row">
+                <label>🏠 Komishinii Manaa / House Comm (%):</label>
+                <div class="setting-ctrl">
+                    <button onclick="adjustFinancesSetting('comm', -1)">-</button>
+                    <span id="adm-setting-comm-lbl">10</span>
+                    <button onclick="adjustFinancesSetting('comm', 1)">+</button>
+                </div>
+            </div>
+            <div class="setting-row">
+                <label>💵 Gatii Tikkeetii / Bet Cost (ETB):</label>
+                <div class="setting-ctrl">
+                    <button onclick="adjustFinancesSetting('bet', -5)">-</button>
+                    <span id="adm-setting-bet-lbl">10</span>
+                    <button onclick="adjustFinancesSetting('bet', 5)">+</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="broadcast-form" style="border: 1px solid #9b59b6;">
+            <div style="color:#9b59b6; font-weight:bold; font-size:11px; margin-bottom:3px;">🔍 SEARCH & TRACK USER INFORMATION:</div>
+            <div style="display: flex; gap: 4px; margin-bottom: 3px;">
+                <input type="text" class="broadcast-input" id="admin-search-user-input" placeholder="User ID ykn Telegram Username galchi..." style="margin-bottom:0; flex:1;">
+                <button class="action-btn" style="background:#9b59b6; padding:0 8px; font-size:11px; width:auto;" onclick="executeDeepSearchUserData()">Search</button>
+            </div>
+            <div class="search-results-box" id="search-results-display-engine">
+                <span style="color:#aaa;">Odeeffannoo user-aa hunda qorachuuf gubbaatti barbaadaa...</span>
+            </div>
+        </div>
+
+        <button class="action-btn" style="background: #c0392b;" onclick="autoRefreshGameNextRound()">🔄 REFRESH FOR NEXT ROUND</button>
+    </div>
+
+    <div class="msg-box">
+        <div style="font-weight: bold; color: #3498db; font-size: 11px; margin-bottom: 1px;">GLOBAL LIVE BROADCASTS</div>
+        <div class="msg-log" id="broadcast-logs">System ready. 4 Screens Premium Mode Active.</div>
+    </div>
+
+    <script>
+        const ADMIN_PASSWORD = "Sifo430@@";
+        let config = { betAmount: 10, commissionPct: 10, wheelRange: 12, countdownSec: 30 };
+        let userProfile = { userId: "USR-9841", telegramHandle: "@telegram_user" };
+        
+        let gameState = {
+            gameId: 6, userWallet: 500.00, likes: 0, dislikes: 0, isAdminMode: false,
+            soldTickets: {}, totalTicketsSold: 0, winnerPrize: 0.00,
+            currentRotation: 90, isSpinning: false, timerInterval: null, timeLeft: 30
+        };
+
+        let currentActiveRoundWinner = null;
+        let gameHistoryData = [{ round: 5, username: "@chala_tola", userId: "365353123", luckyNumber: 3, prize: 700 }];
+
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const broadcastLogs = document.getElementById('broadcast-logs');
+
+        function loadSavedPersistentData() {
+            let savedWallet = localStorage.getItem('persistent_user_wallet');
+            if (savedWallet !== null) gameState.userWallet = parseFloat(savedWallet);
+            else localStorage.setItem('persistent_user_wallet', gameState.userWallet);
+        }
+
+        function saveWalletToLocalStorage() { localStorage.setItem('persistent_user_wallet', gameState.userWallet); }
+
+        // User navigation (Yeroo kamuu admin harka hin bu'u)
+        function switchUserScreen(screenId, buttonEl) {
+            if(gameState.isAdminMode) return; // Admin panel keessa yoo jirtu user screen-tti nama hin fidu
+            document.querySelectorAll('.screen-container').forEach(sc => sc.style.display = 'none');
+            document.getElementById(screenId).style.display = 'flex';
+            
+            document.querySelectorAll('#public-main-nav .tab-btn').forEach(btn => btn.classList.remove('active'));
+            if(buttonEl) buttonEl.classList.add('active');
+
+            if(screenId === 'live-wheel-screen') drawWheel(); 
+            if(screenId === 'game-history-screen') renderGameHistoryView();
+        }
+
+        function switchAdminSubScreen(screenId, buttonEl) {
+            document.querySelectorAll('.screen-container').forEach(sc => sc.style.display = 'none');
+            document.getElementById(screenId).style.display = 'flex';
+            
+            document.querySelectorAll('#admin-internal-nav .admin-tab-item').forEach(btn => btn.classList.remove('active'));
+            if(buttonEl) buttonEl.classList.add('active');
+            if(screenId === 'admin-control-screen') buildAdminLiveTrackerMatrix(); 
+        }
+
+        // AL TOKKO PASSWORD GAFFATA - HANGA LOGOUT GOCHUTTI BANAMEE TURTA
+        function accessProtectedAdminMode() {
+            if(gameState.isAdminMode) {
+                switchAdminSubScreen('admin-control-screen', document.getElementById('tab-adm-ctrl'));
+                return;
+            }
+            let pass = prompt("Enter Admin Secret Password:");
+            if (pass === ADMIN_PASSWORD) {
+                gameState.isAdminMode = true; 
+                document.getElementById('public-main-nav').style.display = 'none';
+                document.getElementById('admin-internal-nav').style.display = 'flex';
+                switchAdminSubScreen('admin-control-screen', document.getElementById('tab-adm-ctrl'));
+                logMessage("[SYSTEM]: Admin verified and session locked to open.");
+            } else if (pass !== null) { alert("Incorrect Password! Access Denied."); }
+        }
+
+        // AMMA LOOG OUT GOOTU QOFA ADMIN CUFAMA
+        function exitAdminSessionMode() {
+            gameState.isAdminMode = false; // Lock ta'e
+            document.getElementById('admin-internal-nav').style.display = 'none';
+            document.getElementById('public-main-nav').style.display = 'flex';
+            switchUserScreen('user-terminal-screen', document.getElementById('tab-user-terminal'));
+            logMessage("[SYSTEM]: Admin logged out safely. User screen locked.");
+        }
+
+        function buildAdminLiveTrackerMatrix() {
+            const matrixBox = document.getElementById('admin-live-tickets-matrix');
+            matrixBox.innerHTML = "";
+            for(let i = 1; i <= config.wheelRange; i++) {
+                const tag = document.createElement('div');
+                if(gameState.soldTickets[i]) {
+                    tag.className = "matrix-tag bought";
+                    tag.innerHTML = `#${i}<br><span style="font-size:8px;">${gameState.soldTickets[i]}</span>`;
+                } else {
+                    tag.className = "matrix-tag available";
+                    tag.innerHTML = `#${i}<br><span style="font-size:8px; color:#555;">TBA</span>`;
+                }
+                matrixBox.appendChild(tag);
+            }
+        }
+
+        function adjustWheelRangeSetting(delta) {
+            config.wheelRange = Math.max(4, Math.min(24, config.wheelRange + delta));
+            document.getElementById('adm-setting-range-lbl').innerText = config.wheelRange;
+            generateKeypad();
+            drawWheel();
+            buildAdminLiveTrackerMatrix();
+            logMessage(`[SETTING]: Range Keypad fi Gengoo gara lakkofsa ${config.wheelRange}tti jijjiirameera.`);
+        }
+
+        function adjustFinancesSetting(type, delta) {
+            if (type === 'bet') {
+                config.betAmount = Math.max(5, config.betAmount + delta);
+                document.getElementById('adm-setting-bet-lbl').innerText = config.betAmount;
+            }
+            if (type === 'comm') {
+                config.commissionPct = Math.max(0, Math.min(100, config.commissionPct + delta));
+                document.getElementById('adm-setting-comm-lbl').innerText = config.commissionPct;
+            }
+            updateUIVisuals();
+        }
+
+        function executeDeepSearchUserData() {
+            const query = document.getElementById('admin-search-user-input').value.trim().toLowerCase();
+            const resultsBox = document.getElementById('search-results-display-engine');
+            if(query === "") { alert("Maaloo maqaa ykn ID galchaa!"); return; }
+
+            if(query === "usr-9841" || query === "@telegram_user" || query === "telegram_user") {
+                let userActiveTickets = [];
+                Object.keys(gameState.soldTickets).forEach(k => { if(gameState.soldTickets[k] === userProfile.telegramHandle) userActiveTickets.push(`#${k}`); });
+                resultsBox.innerHTML = `
+                    <div style="color:#2ecc71; font-weight:bold; border-bottom:1px solid #444; padding-bottom:2px; margin-bottom:3px;">FOUND: CURRENT ACTIVE USER</div>
+                    • <b>User ID:</b> USR-9841 | <b>Username:</b> @telegram_user <br>
+                    • <b>Wallet Balance:</b> <span style="color:#2ecc71; font-weight:bold;">${gameState.userWallet.toFixed(2)} ETB</span><br>
+                    • <b>Round Tickets Bought:</b> ${userActiveTickets.length > 0 ? userActiveTickets.join(', ') : 'None'}
+                `;
+                return;
+            } 
+            resultsBox.innerHTML = `<span style="color:#c0392b; font-weight:bold;">⚠️ User '${query}' jedhamu hin argamne!</span>`;
+        }
+
+        function renderGameHistoryView() {
+            const container = document.getElementById('history-logs-container');
+            container.innerHTML = "";
+            for(let i = gameHistoryData.length - 1; i >= 0; i--) {
+                let item = gameHistoryData[i];
+                container.innerHTML += `
+                    <div class="history-item">
+                        <strong>🎯 TAPHA ${item.round}FFA KAN MO'ATE:</strong><br>
+                        • Username: <span style="color:#2ecc71;">${item.username}</span> | ID: <span style="color:#3498db;">${item.userId}</span><br>
+                        • Lakkoofsa Mo'ate: <span style="color:#f1c40f;">#${item.luckyNumber}</span> | Prize: <strong>${item.prize} ETB</strong>
+                    </div>`;
+            }
+        }
+
+        function approveAndCreditWinnerWalletDirectly() {
+            if(!currentActiveRoundWinner) return;
+            if(currentActiveRoundWinner.username === "@telegram_user") {
+                gameState.userWallet += currentActiveRoundWinner.prize;
+                saveWalletToLocalStorage();
+                updateUIVisuals();
+                logMessage(`[ADMIN APPROVED]: ${currentActiveRoundWinner.prize} ETB successfully added to ${currentActiveRoundWinner.username}`);
+                alert(`Qarshiin ${currentActiveRoundWinner.prize} ETB herrega user-aa irratti dabalameera!`);
+            }
+            document.getElementById('adm-add-prize-btn').style.display = 'none';
+        }
+
+        function transmitLiveBroadcast() {
+            const txtInput = document.getElementById('admin-broadcast-msg');
+            if(txtInput.value.trim() === "") return;
+            logMessage(`[ADMIN LIVE]: ${txtInput.value}`);
+            txtInput.value = "";
+        }
+
+        function triggerEngagement(type) {
+            if(type === 'like') { gameState.likes++; document.getElementById('like-counter').innerText = gameState.likes; } 
+            else { gameState.dislikes++; document.getElementById('dislike-counter').innerText = gameState.dislikes; }
+        }
+
+        function submitUserReplyText() {
+            const inputField = document.getElementById('user-reply-text');
+            if(inputField.value.trim() === "") return;
+            logMessage(`[${userProfile.telegramHandle}]: ${inputField.value}`);
+            inputField.value = "";
+        }
+
+        // SPIN HOJJETU: Spin yeroo ta'u screen ni jijjiirama, yeroo mo'ataa baasutti garuu kallattiin password malee admin mode-tti deebi'a.
+        function executeAdminLiveSpinAction() {
+            executeWheelSpinningSequence();
+        }
+
+        function initGame() {
+            loadSavedPersistentData();
+            gameState.timeLeft = config.countdownSec;
+            document.getElementById('timer-display').innerText = gameState.timeLeft;
+            generateKeypad();
+            drawWheel();
+            updateUIVisuals();
+            startCountdown();
+        }
+
+        function generateKeypad() {
+            const keypad = document.getElementById('ticket-keypad');
+            keypad.innerHTML = '';
+            for (let i = 1; i <= config.wheelRange; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'key-btn'; btn.innerText = i; btn.id = `key-${i}`;
+                btn.onclick = () => instantPurchaseTicket(i);
+                if (gameState.soldTickets[i]) { btn.className = 'key-btn sold'; btn.disabled = true; }
+                keypad.appendChild(btn);
+            }
+        }
+
+        function drawWheel(highlightIndex = -1) {
+            const numSegments = config.wheelRange;
+            const anglePerSegment = (2 * Math.PI) / numSegments;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const colors = ['#c0392b', '#2c3e50'];
+
+            for (let i = 0; i < numSegments; i++) {
+                const angle = i * anglePerSegment;
+                ctx.beginPath();
+                ctx.fillStyle = (i === highlightIndex) ? "#f1c40f" : colors[i % 2];
+                ctx.moveTo(canvas.width/2, canvas.height/2); 
+                ctx.arc(canvas.width/2, canvas.height/2, canvas.width/2, angle, angle + anglePerSegment); 
+                ctx.fill(); ctx.strokeStyle = "#444"; ctx.stroke();
+
+                ctx.save(); ctx.translate(canvas.width/2, canvas.height/2); ctx.rotate(angle + anglePerSegment / 2); ctx.textAlign = "right";
+                ctx.fillStyle = (i === highlightIndex) ? "#000" : "#fff";
+                ctx.font = (i === highlightIndex) ? "bold 14px Arial" : "bold 11px Arial";
+                ctx.fillText(i + 1, (canvas.width/2) - 15, 4); ctx.restore();
+            }
+            canvas.style.transform = `rotate(${gameState.currentRotation}deg)`;
+        }
+
+        function instantPurchaseTicket(chosenNumber) {
+            if (gameState.soldTickets[chosenNumber]) return;
+            if (gameState.userWallet < config.betAmount) { alert("Balance is insufficient!"); return; }
+
+            gameState.userWallet -= config.betAmount;
+            saveWalletToLocalStorage(); 
+
+            gameState.soldTickets[chosenNumber] = userProfile.telegramHandle; 
+            gameState.totalTicketsSold++;
+            
+            let grossRevenue = gameState.totalTicketsSold * config.betAmount;
+            let commissionCut = (config.commissionPct / 100) * grossRevenue;
+            gameState.winnerPrize = grossRevenue - commissionCut;
+
+            logMessage(`[TICKET]: ${userProfile.telegramHandle} Ticket #${chosenNumber} bitateera.`);
+            updateUIVisuals(); generateKeypad(); 
+            if(gameState.isAdminMode) buildAdminLiveTrackerMatrix();
+        }
+
+        function updateUIVisuals() {
+            document.getElementById('user-wallet').innerText = gameState.userWallet.toFixed(2);
+            document.getElementById('current-bet-cost').innerText = config.betAmount.toFixed(2);
+            document.getElementById('prize-pool').innerText = gameState.winnerPrize.toFixed(2);
+        }
+
+        function startCountdown() {
+            clearInterval(gameState.timerInterval);
+            gameState.timerInterval = setInterval(() => {
+                if(gameState.timeLeft > 0) { gameState.timeLeft--; document.getElementById('timer-display').innerText = gameState.timeLeft; }
+            }, 1000);
+        }
+        
+        function logMessage(msg) { broadcastLogs.innerHTML = `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>` + broadcastLogs.innerHTML; }
+        
+        function executeWheelSpinningSequence() {
+            if (gameState.isSpinning) return;
+            gameState.isSpinning = true;
+
+            // Yeroo spin gootu user screen (gengoo) argamsiisi
+            document.getElementById('admin-internal-nav').style.display = 'none';
+            document.getElementById('public-main-nav').style.display = 'flex';
+            document.querySelectorAll('.screen-container').forEach(sc => sc.style.display = 'none');
+            document.getElementById('live-wheel-screen').style.display = 'flex';
+
+            document.getElementById('result').innerText = "SPINNING HIGH SPEED...";
+            const numSegments = config.wheelRange;
+            const segmentsRotationDeg = Math.floor(Math.random() * 360);
+            gameState.currentRotation += (segmentsRotationDeg + (360 * 12)); 
+            canvas.style.transform = `rotate(${gameState.currentRotation}deg)`;
+
+            setTimeout(() => {
+                const actualDegree = (gameState.currentRotation % 360);
+                const segmentArc = 360 / numSegments;
+                const winningIndex = Math.floor(((90 - actualDegree + 360) % 360) / segmentArc);
+                const winningTicketNum = ((winningIndex) % numSegments) + 1;
+                processGameWinner(winningTicketNum);
+            }, 4000);
+        }
+
+        function processGameWinner(winnerTicket) {
+            let winnerOwner = gameState.soldTickets[winnerTicket];
+            let flashCount = 0;
+            const flashInterval = setInterval(() => {
+                flashCount++;
+                drawWheel(flashCount % 2 === 0 ? (winnerTicket - 1) : -1);
+                if (flashCount > 10) {
+                    clearInterval(flashInterval);
+                    drawWheel(winnerTicket - 1);
+                    
+                    let finalWinnerName = winnerOwner ? winnerOwner : "No Winner (Not Bought)";
+                    let finalUserId = winnerOwner ? (winnerOwner === "@telegram_user" ? userProfile.userId : "365353123") : "---";
+                    let finalPrize = gameState.winnerPrize > 0 ? parseFloat(gameState.winnerPrize.toFixed(0)) : 0;
+
+                    document.getElementById('result').innerText = `WINNER: ${finalWinnerName} (#${winnerTicket})`;
+                    logMessage(`[RESULT]: Round ${gameState.gameId} Winner is ${finalWinnerName} (#${winnerTicket})`);
+                    
+                    gameHistoryData.push({ round: gameState.gameId, username: finalWinnerName, userId: finalUserId, luckyNumber: winnerTicket, prize: finalPrize });
+
+                    if(winnerOwner) {
+                        currentActiveRoundWinner = { username: finalWinnerName, userId: finalUserId, prize: finalPrize };
+                        document.getElementById('adm-winner-id-log').innerHTML = `User ID: <span style="color:#fff; font-weight:bold;">${finalUserId}</span>`;
+                        document.getElementById('adm-winner-tg-log').innerHTML = `Telegram: <span style="color:#3498db; font-weight:bold;">${finalWinnerName}</span>`;
+                        document.getElementById('adm-winner-prize-log').innerHTML = `Prize Amount: <span style="color:#2ecc71; font-weight:bold;">${finalPrize} ETB</span>`;
+                        document.getElementById('adm-add-prize-btn').style.display = 'block';
+                    } else {
+                        document.getElementById('adm-winner-id-log').innerHTML = `User ID: <span style="color:#c0392b;">No Winner</span>`;
+                        document.getElementById('adm-winner-tg-log').innerHTML = `Telegram: <span style="color:#c0392b;">Ticket #${winnerTicket} not bought</span>`;
+                        document.getElementById('adm-winner-prize-log').innerHTML = `Prize Amount: <span style="color:#aaa;">0.00 ETB</span>`;
+                        document.getElementById('adm-add-prize-btn').style.display = 'none';
+                    }
+                    
+                    updateUIVisuals();
+                    gameState.isSpinning = false;
+                    
+                    // SPIN XUMURAMNAAN: Password hin gaafatu, kallattiin gara Admin Panel (P3) dabrsa
+                    setTimeout(() => {
+                        document.getElementById('public-main-nav').style.display = 'none';
+                        document.getElementById('admin-internal-nav').style.display = 'flex';
+                        switchAdminSubScreen('admin-control-screen', document.getElementById('tab-adm-ctrl'));
+                    }, 1200);
+                }
+            }, 120);
+        }
+
+        // REFRESH HOJJETU: Next round yoo cuqaastu, herregni ni qulqullaa'a garuu admin session hin cufamu
+        function autoRefreshGameNextRound() {
+            gameState.gameId++;
+            gameState.soldTickets = {}; gameState.totalTicketsSold = 0; gameState.winnerPrize = 0.00;
+            gameState.isSpinning = false; gameState.currentRotation = 90; 
+            gameState.likes = 0; gameState.dislikes = 0;
+            document.getElementById('like-counter').innerText = 0; document.getElementById('dislike-counter').innerText = 0;
+            document.getElementById('result').innerText = "WAITING FOR TICKET SPIN";
+            
+            initGame();
+            alert(`Round ${gameState.gameId} haaran jalqabeera!`);
+            
+            // Password malee Admin Control (P3) irratti akka hafu goona
+            switchAdminSubScreen('admin-control-screen', document.getElementById('tab-adm-ctrl'));
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
