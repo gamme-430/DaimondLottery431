@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Wheel - Absolute Admin & User Transaction Terminals</title>
+    <!-- Script Telegram WebApp kofoo fayyadamaa akka dubbisuuf fiduu -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        h3 { margin: 3px 0; color: #f1c40f; text-align: center; font-size: 18px; }
+        h4 { margin: 4px 0; color: #3498db; font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 2px; }
+
+        /* Public Navigation Bar (User Screens) */
+        .public-navigation {
+            display: flex;
+            width: 100%;
+            max-width: 440px;
+            background: #222;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 8px;
+            border: 1px solid #333;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: #222;
+            color: #aaa;
+            border: none;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: center;
+        }
+        .tab-btn.active { background: #27ae60; color: white; }
+        .admin-gate-btn { background: #e67e22; color: white; border: none; padding: 0 10px; font-weight: bold; font-size: 11px; cursor: pointer; }
+
+        /* Admin Inner Navigation Tabs */
+        .admin-internal-tabs {
+            display: none;
+            width: 100%;
+            max-width: 440px;
+            background: #2c3e50;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 6px;
+            border: 1px solid #34495e;
+            flex-wrap: wrap;
+        }
+        .admin-tab-item {
+            flex: 1; min-width: 55px; padding: 8px 2px; background: #2c3e50; color: #bdc3c7;
+            border: none; font-size: 10px; font-weight: bold; cursor: pointer; text-align: center;
+        }
+        .admin-tab-item.active { background: #e67e22; color: white; }
+
+        /* Main Screen Container */
+        .screen-container {
+            width: 100%;
+            max-width: 440px;
+            height: 64vh;
+            display: none; 
+            background: #1e1e1e;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            box-sizing: border-box;
+            overflow-y: auto;
+            gap: 10px;
+        }
+
+        /* Lock Screen Overlay Style when Game is Closed */
+        .lock-overlay {
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            width: 100%; background: #2c3e50; border-radius: 12px; padding: 20px; text-align: center;
+            box-sizing: border-box; border: 2px solid #e74c3c; min-height: 200px; margin: auto 0;
+        }
+
+        /* Wheel Graphic Area */
+        .wheel-wrapper {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 2px 0;
+        }
+        .pointer-container {
+            position: absolute;
+            width: 16px; height: 16px; background: #f39c12;
+            border-radius: 50%; z-index: 20; border: 2px solid #fff;
+        }
+        .pointer-container::after {
+            content: ''; position: absolute; top: 30%; left: 50%; transform: translateX(-50%);
+            width: 6px; height: 35px; background: linear-gradient(to bottom, #ff0000, #f39c12);
+            clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
+        }
+        canvas { 
+            border-radius: 50%; 
+            border: 4px solid #222; 
+            transition: transform 5s cubic-bezier(0.15, 0.85, 0.35, 1) !important;
+            will-change: transform;
+        }
+
+        /* Dashboard Boxes */
+        .display-board {
+            width: 100%; background: #292929; padding: 6px;
+            border-radius: 8px; margin: 2px 0; font-size: 12px; box-sizing: border-box;
+        }
+        .display-board span { font-weight: bold; color: #2ecc71; }
+        #result { font-size: 15px; font-weight: bold; color: #f1c40f; text-align: center; }
+
+        /* Financial UI Elements */
+        .tx-container { width: 100%; display: flex; gap: 8px; margin-top: 2px; }
+        .tx-toggle-btn { flex: 1; padding: 8px; font-weight: bold; font-size: 11px; border: none; border-radius: 6px; cursor: pointer; color: white; background: #333; }
+        .tx-toggle-btn.deposit-active { background: #27ae60; }
+        .tx-toggle-btn.withdraw-active { background: #9b59b6; }
+        
+        .tx-panel-box { width: 100%; background: #141414; border: 1px solid #333; padding: 10px; border-radius: 8px; box-sizing: border-box; display: none; }
+        .copy-row { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 5px 8px; margin-bottom: 5px; border-radius: 5px; font-size: 11px; }
+        .copy-btn { background: #e67e22; border: none; color: white; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+        
+        /* Form controls */
+        .form-label { font-size: 11px; color: #aaa; margin-bottom: 2px; display: block; font-weight: 500; }
+        .tx-input, .tx-select { width: 100%; background: #222; border: 1px solid #444; color: white; padding: 6px; border-radius: 5px; box-sizing: border-box; font-size: 12px; margin-bottom: 8px; }
+        .tx-file { font-size: 11px; color: #ccc; margin-bottom: 8px; }
+
+        /* Keypad Responsive Grid */
+        .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 100%; max-height: 100px; overflow-y: auto; padding-right: 2px; }
+        .key-btn {
+            background: #333; color: white; border: 1px solid #555;
+            padding: 6px; font-size: 13px; font-weight: bold; border-radius: 5px; cursor: pointer;
+        }
+        .key-btn.sold { background: #7f8c8d !important; color: #d2d7d9 !important; border-color: #95a5a6 !important; cursor: not-allowed !important; opacity: 0.5; }
+
+        /* Admin Own Tickets Style */
+        .my-tickets-container {
+            width: 100%; background: #1a1a1a; border: 1px dashed #2ecc71;
+            border-radius: 8px; padding: 8px; box-sizing: border-box; margin-top: 4px;
+        }
+        .my-tickets-title {
+            font-size: 11px; color: #2ecc71; font-weight: bold;
+            margin-bottom: 4px; text-transform: uppercase; display: flex; justify-content: space-between;
+        }
+        .my-tickets-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 50px; overflow-y: auto; }
+        .user-ticket-badge {
+            background: #27ae60; color: white; font-size: 11px; font-weight: bold;
+            padding: 2px 6px; border-radius: 4px; border: 1px solid #2ecc71;
+        }
+
+        /* Admin Matrix View Keypad style */
+        .admin-matrix-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 100%; max-height: 85px; overflow-y: auto; }
+        .matrix-tag { padding: 4px; border-radius: 4px; text-align: center; font-size: 11px; font-weight: bold; border: 1px solid #444; }
+        .matrix-tag.available { background: #222; color: #888; }
+        .matrix-tag.bought { background: #2980b9; color: white; border-color: #3498db; }
+
+        button.action-btn {
+            width: 100%; padding: 10px; background: #27ae60; border: none;
+            color: white; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer;
+        }
+
+        /* History & Logger Lists */
+        .history-box { width: 100%; height: 80%; background: #111; border: 1px solid #333; padding: 8px; border-radius: 8px; overflow-y: auto; box-sizing: border-box; }
+        .history-item { background: #222; border-left: 4px solid #f1c40f; padding: 6px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; line-height: 1.4; }
+
+        /* Admin Layout Settings Elements */
+        .setting-section { width: 100%; background: #222; padding: 6px; border-radius: 8px; box-sizing: border-box; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; margin: 5px 0; font-size: 12px; }
+        .setting-ctrl { display: flex; align-items: center; gap: 4px; }
+        .setting-ctrl button {
+            background: #333; border: 1px solid #555; color: white;
+            width: 24px; height: 24px; font-weight: bold; cursor: pointer; border-radius: 4px;
+        }
+        .setting-ctrl span { font-weight: bold; min-width: 25px; text-align: center; color: #f1c40f; }
+
+        .winner-panel-alert { background: #2c3e50; border: 1px solid #f1c40f; border-radius: 6px; padding: 6px; margin: 2px 0; font-size: 11px; width: 100%; box-sizing: border-box; }
+        
+        .interactive-feedback { display: flex; gap: 8px; margin: 2px 0; width: 100%; }
+        .feedback-btn { background: #333; border: 1px solid #444; color: white; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-weight: bold; font-size: 11px; }
+        .reply-container { display: flex; width: 100%; gap: 4px; }
+        .reply-input { flex: 1; background: #222; border: 1px solid #444; color: white; padding: 5px; border-radius: 6px; font-size: 12px; }
+        .reply-send-btn { background: #2980b9; border: none; color: white; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
+
+        .broadcast-form { width: 100%; background: #222; padding: 5px; border-radius: 8px; margin-top: 2px; box-sizing: border-box; }
+        .broadcast-input { width: 100%; background: #111; border: 1px solid #444; color: white; padding: 5px; border-radius: 6px; box-sizing: border-box; font-size: 12px; margin-bottom: 2px; }
+        .search-results-box { background: #111; border: 1px solid #e67e22; border-radius: 6px; padding: 6px; width: 100%; min-height: 60px; font-size: 11px; box-sizing: border-box; overflow-y: auto; }
+        .msg-box { width: 100%; max-width: 440px; background: #1a1a1a; border-left: 4px solid #3498db; padding: 6px; margin-top: 8px; border-radius: 4px; box-sizing: border-box; height: 9vh; }
+        .msg-log { max-height: 40px; overflow-y: auto; font-size: 11px; color: #ccc; }
+
+        /* Modal Styles */
+        .sales-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;
+        }
+        .sales-modal-content {
+            background: #1e1e1e; border: 2px solid #e67e22; width: 100%; max-width: 400px;
+            border-radius: 12px; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; max-height: 80vh;
+        }
+        
+        /* Table Styles shared between P3 modal and P5 Screen */
+        .sales-table-wrapper { overflow-y: auto; background: #111; border-radius: 6px; border: 1px solid #333; width: 100%; }
+        .sales-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
+        .sales-table th, .sales-table td { padding: 6px 8px; border-bottom: 1px solid #222; }
+        .sales-table th { background: #2c3e50; color: #f1c40f; position: sticky; top: 0; font-size: 10px; }
+
+        .pinned-announcement-box {
+            width: 100%; background: linear-gradient(135deg, #2c3e50, #1a252f); border-left: 5px solid #f1c40f;
+            padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; font-size: 12px; color: #fff; display: none; box-sizing: border-box;
+        }
+
+        .contact-admin-btn {
+            width: 100%; padding: 8px; background: linear-gradient(135deg, #2980b9, #3498db); color: white; border: none; font-size: 12px; font-weight: bold;
+            border-radius: 6px; cursor: pointer; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .verification-row { display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #333; font-size: 12px; }
+        .verification-row span:first-child { color: #aaa; font-weight: 500; }
+        .verification-row span:last-child { color: #fff; font-weight: bold; }
+
+        /* P7: STYLES FOR SCREENSHOT DISPLAY terminal */
+        .p7-screenshot-container {
+            width: 100%; background: #111; border: 1px solid #3498db; border-radius: 8px;
+            padding: 10px; box-sizing: border-box; text-align: center;
+        }
+        .p7-img-preview {
+            max-width: 100%; max-height: 250px; border: 2px solid #333; border-radius: 6px;
+            margin-top: 8px; object-fit: contain; display: none; background: #222;
+        }
+
+        /* P8 Switch Buttons layout */
+        .mode-toggle-container {
+            display: flex; width: 100%; gap: 10px; margin-bottom: 5px;
+        }
+        .mode-btn {
+            flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; font-size: 12px; text-transform: uppercase; background: #333;
+        }
+        .mode-btn.active-auto { background: #27ae60; box-shadow: 0 0 10px rgba(39,174,96,0.5); }
+        .mode-btn.active-manual { background: #d35400; box-shadow: 0 0 10px rgba(211,84,0,0.5); }
+    </style>
+</head>
+<body>
+
+    <div class="public-navigation" id="public-main-nav">
+        <button class="tab-btn active" id="tab-user-terminal" onclick="switchUserScreen('user-terminal-screen', this)">USER TERMINAL</button>
+        <button class="tab-btn" id="tab-live-wheel" onclick="switchUserScreen('live-wheel-screen', this)">LIVE WHEEL</button>
+        <button class="admin-gate-btn" onclick="accessProtectedAdminMode()">⚙️ ADMIN</button>
+    </div>
+
+    <div class="admin-internal-tabs" id="admin-internal-nav">
+        <button class="admin-tab-item active" id="tab-adm-ctrl" onclick="switchAdminSubScreen('admin-control-screen', this)"> Live (P3)</button>
+        <button class="admin-tab-item" id="tab-adm-sett" onclick="switchAdminSubScreen('admin-settings-screen', this)"> Setup (P4)</button>
+        <button class="admin-tab-item" id="tab-adm-db" onclick="switchAdminSubScreen('admin-database-screen', this)"> DB (P5)</button>
+        <button class="admin-tab-item" id="tab-adm-approve" style="background: #27ae60; color:#fff;" onclick="switchAdminSubScreen('admin-approval-screen', this)"> Approval (P6)</button>
+        <button class="admin-tab-item" id="tab-adm-screenshot" style="background: #3498db; color:#fff;" onclick="switchAdminSubScreen('admin-screenshot-screen', this)"> View Screenshot (P7)</button>
+        <button class="admin-tab-item" id="tab-adm-automation" style="background: #9b59b6; color:#fff;" onclick="switchAdminSubScreen('admin-automation-screen', this)"> Automation (P8)</button>
+        <button class="admin-gate-btn" style="background:#c0392b;" onclick="exitAdminSessionMode()">🔒 EXIT</button>
+    </div>
+
+    <!-- LOCK OVERLAY FOR USERS WHEN SYSTEM IS CLOSED -->
+    <div class="lock-overlay" id="global-lock-screen">
+        <span style="font-size: 40px; margin-bottom: 10px;">🔒</span>
+        <h2 style="color: #e74c3c; margin: 5px 0;">TAPHA CUFAMERA</h2>
+        <p style="color: #ccc; font-size: 13px;">Tapha yeroof adiminiin cufameera! Sochiin kamiyyuu fi bittaan tikkeetii yeroof addaan citeera.</p>
+    </div>
+
+    <!-- USER TERMINAL WITH DEPOSIT & WITHDRAWN OPTIONS -->
+    <div class="screen-container" id="user-terminal-screen" style="display: flex;">
+        <h3>USER TICKET TERMINAL</h3>
+        <div class="display-board">
+            <div>User ID: <span style="color: #fff;" id="display-user-id">Loading...</span></div>
+            <div>Telegram: <span style="color: #3498db;" id="display-tg-username">Loading...</span></div>
+            <hr style="border:0; border-top:1px solid #444; margin:4px 0;">
+            <div>Wallet Balance: <span id="user-wallet" style="color:#2ecc71; font-size:15px;">0.00</span> birr</div>
+            <div>Price Per Ticket: <span id="current-bet-cost" style="color:#f1c40f;">10.00</span> birr</div>
+            
+            <button class="contact-admin-btn" onclick="openAdminContactLink()">
+                💬 CONTACT ADMIN
+            </button>
+        </div>
+
+        <!-- DEPOSIT & WITHDRAW TOGGLE BUTTONS -->
+        <div class="tx-container">
+            <button class="tx-toggle-btn" id="btn-toggle-deposit" onclick="toggleTxPanel('deposit')">💰 DEPOSIT</button>
+            <button class="tx-toggle-btn" id="btn-toggle-withdraw" onclick="toggleTxPanel('withdraw')">💸 WITHDRAW</button>
+        </div>
+
+        <!-- DEPOSIT FORM PANEL -->
+        <div class="tx-panel-box" id="panel-deposit">
+            <h4>💰 Deposit Money</h4>
+            <div style="font-size:10px; color:#f1c40f; margin-bottom:5px; font-weight:bold;">Owner: Gemechu Tadesse</div>
+            
+            <div style="font-size:11px; color:#2ecc71; font-weight:bold; margin-bottom:2px;">— Wallets:</div>
+            <div class="copy-row"><span>Telebirr: 0915911013</span><button class="copy-btn" onclick="copyTextToClipboard('0915911013')">Copy</button></div>
+            <div class="copy-row"><span>Cbe Birr: 0915911013</span><button class="copy-btn" onclick="copyTextToClipboard('0915911013')">Copy</button></div>
+            <div class="copy-row"><span>Awash Wallet: 0915911013</span><button class="copy-btn" onclick="copyTextToClipboard('0915911013')">Copy</button></div>
+            
+            <div style="font-size:11px; color:#3498db; font-weight:bold; margin:4px 0 2px 0;">— Bank Info:</div>
+            <div class="copy-row"><span>Awash: 01320030003101</span><button class="copy-btn" onclick="copyTextToClipboard('01320030003101')">Copy</button></div>
+            <div class="copy-row"><span>CBE: 1000194059799</span><button class="copy-btn" onclick="copyTextToClipboard('1000194059799')">Copy</button></div>
+
+            <label class="form-label" style="margin-top:6px;">Hanga Maallaqaa (Amount):</label>
+            <input type="number" class="tx-input" id="dp-amount" placeholder="Fkn. 500">
+            
+            <label class="form-label">Screenshot Kaffaltii (Upload):</label>
+            <input type="file" class="tx-file" id="dp-screenshot" accept="image/*">
+            
+            <button class="action-btn" style="background:#27ae60; padding:8px; font-size:12px;" onclick="submitDepositFormRequest()">📩 SUBMIT DEPOSIT</button>
+        </div>
+
+        <!-- WITHDRAW FORM PANEL -->
+        <div class="tx-panel-box" id="panel-withdraw">
+            <h4>💸 Withdraw Money</h4>
+            
+            <label class="form-label">Maqaa Guutuu (Full Name):</label>
+            <input type="text" class="tx-input" id="wd-name" placeholder="Maqaa kee galchi">
+            
+            <label class="form-label">Filadhu Baankii (Select Bank/Wallet):</label>
+            <select class="tx-select" id="wd-bank">
+                <option value="CBE">Commercial Bank of Ethiopia (CBE)</option>
+                <option value="Awash Bank">Awash Bank</option>
+                <option value="Telebirr">Telebirr</option>
+                <option value="CBE Birr">CBE Birr</option>
+                <option value="Awash Wallet">Awash Wallet</option>
+            </select>
+            
+            <label class="form-label">Lakkofsa Herregaa (Account/Phone Number):</label>
+            <input type="text" class="tx-input" id="wd-account" placeholder="Lakkofsa herrega baankii">
+            
+            <label class="form-label">Hanga Qarshii (Amount to Withdraw):</label>
+            <input type="number" class="tx-input" id="wd-amount" placeholder="Hanga qarshii">
+            
+            <button class="action-btn" style="background:#9b59b6; padding:8px; font-size:12px;" onclick="submitWithdrawalFormRequest()">📤 SUBMIT WITHDRAWAL REQUEST</button>
+        </div>
+
+        <!-- LIVE DISPLAY OF OWN TICKETS -->
+        <div class="my-tickets-container">
+            <div class="my-tickets-title">
+                <span>🎟️ Tikkeetota Koo (My Tickets):</span>
+                <span id="my-tickets-count" style="color: #fff;">0</span>
+            </div>
+            <div class="my-tickets-list" id="my-tickets-display-list">
+                <span style="color:#666; font-size:11px;">Hanga ammaatti tikkeetiin bitame hin jiru.</span>
+            </div>
+        </div>
+
+        <div style="font-size:11px; color:#aaa; text-align:center; width:100%;">Lakkofsa barbaaddan cuqaasanii battalatti bitadhaa:</div>
+        <div class="keypad" id="ticket-keypad"></div>
+        <button class="action-btn" style="background:#e67e22;" onclick="document.getElementById('tab-live-wheel').click()">
+            NEXT -> VIEW LIVE WHEEL
+        </button>
+    </div>
+
+    <div class="screen-container" id="live-wheel-screen">
+        <h3>LIVE WHEEL GAME</h3>
+        <div class="pinned-announcement-box" id="user-pinned-box">
+            📌 <span id="user-pinned-text" style="font-weight: 500;"></span>
+        </div>
+        <div id="result">WAITING FOR TICKET SPIN</div>
+        <div class="wheel-wrapper">
+            <div class="pointer-container"></div>
+            <canvas id="wheel" width="140" height="140"></canvas>
+        </div>
+        <div class="display-board" style="padding: 4px; display:flex; justify-content:space-around;">
+            <div>Prize Pool: <span id="prize-pool">0.00</span> birr</div>
+            <div>Timer Clock: <span id="timer-display">60</span>s</div>
+        </div>
+        <div style="width: 100%;">
+            <div class="interactive-feedback">
+                <button class="feedback-btn" onclick="triggerEngagement('like')">👍 Like (<span id="like-counter">0</span>)</button>
+                <button class="feedback-btn" onclick="triggerEngagement('dislike')">👎 Dislike (<span id="dislike-counter">0</span>)</button>
+                <button class="feedback-btn" style="background:#2980b9; color:white; margin-left:auto;" onclick="switchUserScreen('game-history-screen', null)">📜 Game History</button>
+            </div>
+            <div class="reply-container">
+                <input type="text" class="reply-input" id="user-reply-text" placeholder="Yaada kee asitti barreessi...">
+                <button class="reply-send-btn" onclick="submitUserReplyText()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="screen-container" id="game-history-screen">
+        <h3>📜 GAME HISTORY LOGS</h3>
+        <div class="history-box" id="history-logs-container"></div>
+        <button class="action-btn" style="background:#555;" onclick="switchUserScreen('live-wheel-screen', document.getElementById('tab-live-wheel'))">
+            <- Back To Live Game
+        </button>
+    </div>
+
+    <div class="screen-container" id="admin-control-screen" style="border: 2px solid #e67e22;">
+        <h3 style="color: #e67e22;">🎮 ADMIN LIVE CONTROL (P3)</h3>
+
+        <!-- GLOBAL GAME OPEN/CLOSE SINGLE BUTTON TOGGLE SYSTEM -->
+        <div style="width: 100%; margin-bottom: 8px;">
+            <button id="admin-toggle-game-gate-btn" class="action-btn" style="background:#c0392b; font-size:14px; padding:12px; letter-spacing:0.5px;" onclick="toggleGlobalGameGate()">
+                🔒 TAPHA CUFI (CLOSE GAME)
+            </button>
+        </div>
+        
+        <button class="action-btn" style="background:#2980b9; margin-bottom: 5px; padding: 8px; font-size: 12px;" onclick="openDetailedSalesReport()">📊 VIEW DETAILED SALES</button>
+
+        <div class="setting-section" style="background: #111; border: 1px dashed #e67e22;">
+            <div style="color: #e67e22; font-size:11px; font-weight:bold; margin-bottom:3px; text-align:center;">📊 LIVE TICKETS TRACKER KEYPAD:</div>
+            <div class="admin-matrix-grid" id="admin-live-tickets-matrix"></div>
+        </div>
+        <div class="winner-panel-alert" style="margin-top:2px;">
+            <div style="color:#f1c40f; font-weight:bold; text-align:center; border-bottom:1px solid #555; padding-bottom:1px; margin-bottom:2px; font-size:10px;">🏆 LAST WINNER REAL-TIME</div>
+            <div id="adm-winner-id-log">User ID: <span style="color:#aaa;">No game yet</span></div>
+            <div id="adm-winner-tg-log">Telegram: <span style="color:#aaa;">No game yet</span></div>
+            <div id="adm-winner-prize-log" style="margin-bottom:2px;">Prize Amount: <span style="color:#aaa;">0.00 birr</span></div>
+            <button class="action-btn" style="background:#27ae60; padding:5px; font-size:11px;" onclick="switchAdminSubScreen('admin-approval-screen', document.getElementById('tab-adm-approve'))">🔎 GO TO P6 TO VERIFY & APPROVE</button>
+        </div>
+        <div class="broadcast-form">
+            <input type="text" class="broadcast-input" id="admin-broadcast-msg" placeholder="Waan tamsaasuu barbaaddan barreessaa...">
+            <button class="action-btn" style="background:#3498db; padding:4px; font-size:11px;" onclick="transmitLiveBroadcast()">📢 SEND BROADCAST</button>
+        </div>
+        <button class="action-btn" id="p3-manual-spin-btn" style="background: #e67e22; padding:10px;" onclick="executeAdminLiveSpinAction()">⚡ SPIN WHEEL NOW</button>
+
+        <div class="sales-modal" id="salesReportModal">
+            <div class="sales-modal-content">
+                <h3 style="color:#e67e22; margin-bottom:5px;">📊 TICKET SALES REPORT</h3>
+                <div style="font-size:11px; color:#aaa; text-align:center;">Gabaasa tikkeetii gurguramee kan Round Ammaa</div>
+                <div class="sales-table-wrapper" style="height: 140px;">
+                    <table class="sales-table">
+                        <thead>
+                            <tr>
+                                <th>Round</th>
+                                <th>Lakkofsa (#)</th>
+                                <th>Telegram User</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-table-body"></tbody>
+                    </table>
+                </div>
+                <button class="action-btn" style="background:#c0392b; padding:8px; margin-top:5px;" onclick="document.getElementById('salesReportModal').style.display='none'">XUUMURI / CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="screen-container" id="admin-settings-screen" style="border: 2px solid #9b59b6;">
+        <h3>🛠️ SYSTEM SETUP & SEARCH (P4)</h3>
+        <div class="setting-section">
+            <div class="setting-row">
+                <label>🔢 Range Lakkofsa Keypad:</label>
+                <div class="setting-ctrl">
+                    <button onclick="adjustWheelRangeSetting(-1)">-</button>
+                    <span id="adm-setting-range-lbl">12</span>
+                    <button onclick="adjustWheelRangeSetting(1)">+</button>
+                </div>
+            </div>
+            <div class="setting-row">
+                <label>🏠 House Comm (%):</label>
+                <div class="setting-ctrl">
+                    <button onclick="adjustFinancesSetting('comm', -1)">-</button>
+                    <span id="adm-setting-comm-lbl">10</span>
+                    <button onclick="adjustFinancesSetting('comm', 1)">+</button>
+                </div>
+            </div>
+            <div class="setting-row">
+                <label>💵 Bet Cost (birr):</label>
+                <div class="setting-ctrl">
+                    <button onclick="adjustFinancesSetting('bet', -5)">-</button>
+                    <span id="adm-setting-bet-lbl">10</span>
+                    <button onclick="adjustFinancesSetting('bet', 5)">+</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="setting-section" style="margin-top: 5px;">
+            <div style="color:#9b59b6; font-weight:bold; font-size:11px; margin-bottom:5px;">⏱️ TIMER CONTROLS:</div>
+            <div class="setting-row">
+                <label>Set Timer Clock (Seconds):</label>
+                <div class="setting-ctrl">
+                    <button onclick="changeDefaultTimerConfig(-5)">-</button>
+                    <span id="adm-setting-timer-lbl">60</span>
+                    <button onclick="changeDefaultTimerConfig(5)">+</button>
+                </div>
+            </div>
+            <div style="display:flex; gap:5px; margin-top:4px;">
+                <button class="action-btn" style="background:#27ae60; padding:6px; font-size:11px;" onclick="controlLiveTimerAction('start')">▶️ START</button>
+                <button class="action-btn" style="background:#c0392b; padding:6px; font-size:11px;" onclick="controlLiveTimerAction('pause')">⏸️ PAUSE</button>
+                <button class="action-btn" style="background:#d35400; padding:6px; font-size:11px;" onclick="controlLiveTimerAction('reset')">🔄 RESET</button>
+            </div>
+        </div>
+
+        <div class="broadcast-form" style="border: 1px solid #f1c40f; margin-top: 5px;">
+            <div style="color:#f1c40f; font-weight:bold; font-size:11px; margin-bottom:3px;">📌 PIN MESSAGE ON LIVE WHEEL:</div>
+            <textarea class="broadcast-input" id="admin-pin-text-input" placeholder="Ergaa guraandallii gubbaatti pin..." rows="2" style="resize:none; font-family:inherit;"></textarea>
+            <div style="display:flex; gap:4px;">
+                <button class="action-btn" style="background:#f1c40f; color:#000; padding:5px; font-size:11px;" onclick="publishPinnedMessage('set')">📌 PIN MESSAGE</button>
+                <button class="action-btn" style="background:#7f8c8d; padding:5px; font-size:11px;" onclick="publishPinnedMessage('clear')">❌ UNPIN</button>
+            </div>
+        </div>
+
+        <div class="broadcast-form" style="border: 1px solid #9b59b6;">
+            <div style="color:#9b59b6; font-weight:bold; font-size:11px; margin-bottom:3px;">🔍 SEARCH & TRACK USER INFORMATION:</div>
+            <input type="text" class="broadcast-input" id="admin-search-user-input" placeholder="User ID ykn Username galchi..." style="margin-bottom:5px;">
+            <div style="display: flex; gap: 4px; margin-bottom: 5px;">
+                <button class="action-btn" style="background:#9b59b6; padding:6px; font-size:11px; flex:1;" onclick="executeDeepSearchUserData()">🔎 FULL SEARCH</button>
+                <button class="action-btn" style="background:#27ae60; padding:6px; font-size:11px; flex:1;" onclick="executeQuickWalletLookupOnly()">💰 VIEW WALLET</button>
+            </div>
+            <div class="search-results-box" id="search-results-display-engine">
+                <span style="color:#aaa;">Odeeffannoo user-aa hunda qorachuuf...</span>
+            </div>
+        </div>
+        <button class="action-btn" style="background: #c0392b;" onclick="autoRefreshGameNextRound()">🔄 REFRESH FOR NEXT ROUND</button>
+    </div>
+
+    <div class="screen-container" id="admin-database-screen" style="border: 2px solid #1abc9c; justify-content: flex-start; gap: 6px;">
+        <h3 style="color: #1abc9c;">🗄️ ADVANCED DATABASE & LOGS (P5)</h3>
+        
+        <div class="setting-section" style="border: 1px solid #e67e22; max-height: 120px; display: flex; flex-direction: column;">
+            <div style="color:#e67e22; font-weight:bold; font-size:11px; margin-bottom:4px; text-align:center;">📊 ROUND-BY-ROUND SALES MONITOR</div>
+            <div class="sales-table-wrapper" style="flex: 1; max-height: 90px;">
+                <table class="sales-table">
+                    <thead>
+                        <tr>
+                            <th>Round</th>
+                            <th>Telegram User</th>
+                            <th>User ID</th>
+                            <th>Ticket (#)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="p5-sales-table-body">
+                        <tr><td colspan="4" style="text-align:center; color:#666;">Eeggachaa jira...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="setting-section" style="border: 1px solid #1abc9c;">
+            <div style="color:#1abc9c; font-weight:bold; font-size:11px; margin-bottom:4px;">💰 DIRECT WALLET MODIFIER (CREDIT/DEBIT):</div>
+            <input type="text" class="broadcast-input" id="adm-mod-userid" placeholder="Target User ID galchi...">
+            <input type="number" class="broadcast-input" id="adm-mod-amount" placeholder="Hanga Maallaqaa...">
+            <div style="display:flex; gap:5px; margin-top:3px;">
+                <button class="action-btn" style="background:#27ae60; padding:6px; font-size:12px;" onclick="modifyUserBalanceDirectly('add')">➕ CREDIT WALLET</button>
+                <button class="action-btn" style="background:#c0392b; padding:6px; font-size:12px;" onclick="modifyUserBalanceDirectly('sub')">➖ DEBIT WALLET</button>
+            </div>
+        </div>
+
+        <div class="setting-section">
+            <div style="color:#e74c3c; font-weight:bold; font-size:11px; margin-bottom:3px;">⚠️ DANGER ZONE / SYSTEM RESET:</div>
+            <div style="display:flex; gap:4px;">
+                <button class="action-btn" style="background:#d35400; padding:5px; font-size:11px;" onclick="dangerZoneWipeTicketsOnly()">🧹 WIPE TICKETS ONLY</button>
+                <button class="action-btn" style="background:#c0392b; padding:5px; font-size:11px;" onclick="dangerZoneFullSystemReset()">💣 FULL RESET SYSTEM</button>
+            </div>
+        </div>
+
+        <div class="setting-section" style="flex: 1; display:flex; flex-direction:column; min-height:40px;">
+            <div class="history-box" id="db-live-system-monitor" style="height:100%; font-size:9px; background:#000; padding:3px;"></div>
+        </div>
+    </div>
+
+    <!-- P6: VERIFICATION SCREEN INCORPORATING DEPOSITS & WITHDRAWALS FOR ADMINISTRATIVE FINANCIAL APPROVALS -->
+    <div class="screen-container" id="admin-approval-screen" style="border: 2px solid #27ae60;">
+        <h3>✅ FINANCES & WINNER APPROVALS (P6)</h3>
+        
+        <!-- LIVE TRANSACTIONS QUEUE TABLE FOR DEPOSITS/WITHDRAWALS -->
+        <div class="setting-section" style="border: 1px solid #3498db; max-height: 120px; display:flex; flex-direction:column; padding:4px;">
+            <div style="color:#3498db; font-weight:bold; font-size:10px; text-align:center; margin-bottom:2px;">⏳ PENDING DEPOSITS & WITHDRAWALS</div>
+            <div class="sales-table-wrapper" style="flex:1;">
+                <table class="sales-table" style="font-size:10px;">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>User ID</th>
+                            <th>Amount</th>
+                            <th>Details</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="p6-tx-requests-table-body">
+                        <tr><td colspan="5" style="text-align:center; color:#666;">No pending transactions.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="setting-section" style="background: #111; flex: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; overflow-y: auto;">
+            <div style="color:#27ae60; font-weight:bold; font-size:11px; text-align:center; border-bottom:1px solid #27ae60; padding-bottom:2px; margin-bottom:4px;">📋 LIVE ROUND WINNER METRICS</div>
+            
+            <div class="verification-row"><span>Telegram Username:</span><span id="p6-tg-username" style="color:#3498db;">No Game</span></div>
+            <div class="verification-row"><span>User ID:</span><span id="p6-user-id" style="color:#f1c40f;">No Game</span></div>
+            <div class="verification-row"><span>Tapha Round:</span><span id="p6-game-round">0</span></div>
+            <div class="verification-row"><span>Lakkofsa Injifate:</span><span id="p6-lucky-number" style="color:#e74c3c; font-size:12px;">#0</span></div>
+            <div class="verification-row"><span>Hanga Prize:</span><span id="p6-prize-amount" style="color:#2ecc71; font-size:13px;">0.00 birr</span></div>
+            <div class="verification-row" style="background:#222; margin-top:2px; border-radius:4px;"><span>Wallet Amma Qabu:</span><span id="p6-current-wallet" style="color:#2ecc71;">0.00 birr</span></div>
+        </div>
+
+        <div style="width: 100%; display: flex; flex-direction: column; gap: 4px;">
+            <button id="p6-approve-btn" class="action-btn" style="background:#27ae60; padding:10px; font-size:13px; display:none;" onclick="p6ApproveAndSaveWinnerWinnings()">
+                ✅ APPROVE WINNINGS & CREDIT WALLET
+            </button>
+            <div id="p6-no-winner-msg" style="color:#aaa; font-size:11px; text-align:center; padding:6px; background:#222; border-radius:6px;">
+                Eeggachaa jira... Tapha xumuramee injifataa qabu eegaa.
+            </div>
+        </div>
+    </div>
+
+    <!-- P7: EXPLICIT FUULA SCREENSHOT DISPLAY IRRAATI DHUFU -->
+    <div class="screen-container" id="admin-screenshot-screen" style="border: 2px solid #3498db;">
+        <h3 style="color: #3498db;">📸 SCREENSHOT VERIFICATION TERMINAL (P7)</h3>
+        <div class="p7-screenshot-container">
+            <div style="font-size: 12px; color: #fff; font-weight: bold; margin-bottom: 5px;">
+                User Request Selected Snapshot:
+            </div>
+            <div id="p7-user-info-meta" style="font-size: 11px; color: #f1c40f; margin-bottom: 8px;">
+                No request image selected yet. Go to P6 and click "VIEW 📸".
+            </div>
+            
+            <!-- Image tag where screenshot is rendered -->
+            <img src="" id="p7-main-display-image" class="p7-img-preview" alt="Payment Proof">
+            
+            <div id="p7-fallback-text" style="color: #666; font-size: 11px; padding: 40px 0;">
+                [ Screenshot image will display here inside P7 terminal ]
+            </div>
+        </div>
+        <button class="action-btn" style="background:#27ae60; margin-top: 5px;" onclick="switchAdminSubScreen('admin-approval-screen', document.getElementById('tab-adm-approve'))">
+            <- BACK TO P6 TO APPROVE / REJECT
+        </button>
+    </div>
+
+    <!-- P8: AUTOMATION TERMINAL FUULA HAARAA -->
+    <div class="screen-container" id="admin-automation-screen" style="border: 2px solid #9b59b6;">
+        <h3 style="color: #9b59b6;">⏱️ AUTOMATION TERMINAL (P8)</h3>
+        
+        <div class="display-board" style="text-align: center; background: #111; padding: 10px;">
+            <div style="font-size: 13px; color: #aaa; margin-bottom: 3px;">SYSTEM CONTROL MODE:</div>
+            <div id="p8-current-mode-status" style="font-size: 18px; font-weight: bold; color: #27ae60;">AUTOMATIC MODE</div>
+        </div>
+
+        <div class="mode-toggle-container">
+            <button class="mode-btn active-auto" id="p8-btn-auto" onclick="changeSystemAutomationMode('Automatic')">🤖 AUTOMATIC</button>
+            <button class="mode-btn" id="p8-btn-manual" onclick="changeSystemAutomationMode('Manual')">⚙️ MANUAL</button>
+        </div>
+
+        <div class="setting-section" style="border: 1px dashed #9b59b6; background: #141414;">
+            <h4 style="color:#f1c40f; font-size:12px; margin-top: 2px;">📋 Rules Of Engine Operations</h4>
+            <ul style="font-size: 11px; color: #ccc; padding-left: 18px; margin: 4px 0; line-height: 1.5;">
+                <li><b style="color: #27ae60;">Auto Mode:</b> Lakkofsi Countdown ni socho'a (60 -> 0), ofumaan spin godha, wallet injifataa irratti maallaqa ni dabalama, dhumarratti ofumaan refresh ta'ee round itti aanutti darba.</li>
+                <li><b style="color: #d35400;">Manual Mode:</b> Countdown ni dhaabbata. Spin gochuun, herrega injifataa mirkaneessuun (P6) fi Tikkeetii haquun hundi harka Admin qofaan ta'a.</li>
+            </ul>
+        </div>
+        
+        <div class="display-board" style="display:flex; justify-content:space-around; align-items:center;">
+            <div>Live Timer: <span id="p8-timer-view" style="font-size:18px; color:#f1c40f;">60</span>s</div>
+            <div>Active Tickets: <span id="p8-tickets-count" style="font-size:18px; color:#3498db;">0</span></div>
+        </div>
+    </div>
+
+    <div class="msg-box">
+        <div style="font-weight: bold; color: #3498db; font-size: 11px; margin-bottom: 1px;">GLOBAL LIVE BROADCASTS</div>
+        <div class="msg-log" id="broadcast-logs">System ready. Live Syncing Active.</div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCggf-5QfO7NQv02hX6Mv-fQ-EaA8_y0ms",
+            authDomain: "gamme-kd.firebaseapp.com",
+            databaseURL: "https://gamme-kd-default-rtdb.europe-west1.firebasedatabase.app/",
+            projectId: "gamme-kd",
+            storageBucket: "gamme-kd.appspot.com",
+            messagingSenderId: "129910531764",
+            appId: "1:129910531764:web:2799e421ec83101aa499e1"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const ADMIN_PASSWORD = "Sifo430@@";
+        let config = { betAmount: 10, commissionPct: 10, wheelRange: 12, countdownSec: 60 };
+        
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        const tgUser = tg.initDataUnsafe?.user;
+
+        let userProfile = { 
+            userId: tgUser ? String(tgUser.id) : "GUEST-USER", 
+            telegramHandle: tgUser ? `@${tgUser.username || 'User'}` : "@guest_user" 
+        };
+        
+        let gameState = {
+            gameId: 1, userWallet: 0.00, likes: 0, dislikes: 0, isAdminMode: false,
+            soldTickets: {}, totalTicketsSold: 0, winnerPrize: 0.00,
+            currentRotation: 90, isSpinning: false, timerInterval: null, timeLeft: 60,
+            gameStatus: "Open", automationMode: "Automatic"
+        };
+
+        let currentActiveRoundWinner = null;
+        let gameHistoryData = [];
+        let currentActiveUserScreenId = "user-terminal-screen"; 
+
+        let currentUploadedScreenshotBase64 = "";
+
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const broadcastLogs = document.getElementById('broadcast-logs');
+        const dbMonitor = document.getElementById('db-live-system-monitor');
+
+        function appendToLiveMonitor(text) {
+            const time = new Date().toLocaleTimeString();
+            if(dbMonitor) dbMonitor.innerHTML = `<div>[${time}] ${text}</div>` + dbMonitor.innerHTML;
+        }
+
+        function copyTextToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Lakkofsichi Copy Ta'eera: " + text);
+            }).catch(err => {
+                console.error("Copy failed", err);
+            });
+        }
+
+        document.getElementById('dp-screenshot').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    currentUploadedScreenshotBase64 = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function toggleTxPanel(panelType) {
+            const dpPanel = document.getElementById('panel-deposit');
+            const wdPanel = document.getElementById('panel-withdraw');
+            const dpBtn = document.getElementById('btn-toggle-deposit');
+            const wdBtn = document.getElementById('btn-toggle-withdraw');
+
+            if(panelType === 'deposit') {
+                if(dpPanel.style.display === 'block') {
+                    dpPanel.style.display = 'none';
+                    dpBtn.classList.remove('deposit-active');
+                } else {
+                    dpPanel.style.display = 'block';
+                    wdPanel.style.display = 'none';
+                    dpBtn.classList.add('deposit-active');
+                    wdBtn.classList.remove('withdraw-active');
+                }
+            } else if(panelType === 'withdraw') {
+                if(wdPanel.style.display === 'block') {
+                    wdPanel.style.display = 'none';
+                    wdBtn.classList.remove('withdraw-active');
+                } else {
+                    wdPanel.style.display = 'block';
+                    dpPanel.style.display = 'none';
+                    wdBtn.classList.add('withdraw-active');
+                    dpBtn.classList.remove('deposit-active');
+                }
+            }
+        }
+
+        function submitDepositFormRequest() {
+            const amount = parseFloat(document.getElementById('dp-amount').value);
+            if(userProfile.userId === "GUEST-USER") { alert("Maaloo Bot keessaan banaa!"); return; }
+            if(isNaN(amount) || amount <= 0) { alert("Hanga maallaqaa sirrii galchi!"); return; }
+            if(!currentUploadedScreenshotBase64) { alert("Maaloo dursitanii Screenshot kaffaltii upload godha!"); return; }
+            
+            let txRef = db.ref('financialRequests').push();
+            txRef.set({
+                txId: txRef.key,
+                type: 'Deposit',
+                userId: userProfile.userId,
+                username: userProfile.telegramHandle,
+                amount: amount,
+                status: 'Pending',
+                screenshot: currentUploadedScreenshotBase64, 
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }, (error) => {
+                if(!error) {
+                    alert("Deposit Request keessan 'Pending' ta'ee kora adiminiitti dabarfeera. Eeggadhaa!");
+                    document.getElementById('dp-amount').value = "";
+                    document.getElementById('dp-screenshot').value = "";
+                    currentUploadedScreenshotBase64 = "";
+                    document.getElementById('panel-deposit').style.display = 'none';
+                    document.getElementById('btn-toggle-deposit').classList.remove('deposit-active');
+                }
+            });
+        }
+
+        function submitWithdrawalFormRequest() {
+            const name = document.getElementById('wd-name').value.trim();
+            const bank = document.getElementById('wd-bank').value;
+            const account = document.getElementById('wd-account').value.trim();
+            const amount = parseFloat(document.getElementById('wd-amount').value);
+
+            if(userProfile.userId === "GUEST-USER") { alert("Maaloo Bot keessaan banaa!"); return; }
+            if(name === "" || account === "" || isNaN(amount) || amount <= 0) { alert("Maaloo unka hunda sirriitti guuti!"); return; }
+            if(amount > gameState.userWallet) { alert("Balance keessaa gahaa miti! Maallaqa siriitti baasuu hin dandeessu."); return; }
+
+            let txRef = db.ref('financialRequests').push();
+            txRef.set({
+                txId: txRef.key,
+                type: 'Withdraw',
+                userId: userProfile.userId,
+                username: userProfile.telegramHandle,
+                name: name,
+                bank: bank,
+                account: account,
+                amount: amount,
+                status: 'Pending',
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }, (error) => {
+                if(!error) {
+                    alert("Withdrawal Request keessan 'Pending' ta'ee adiminiif deemeera.");
+                    document.getElementById('wd-name').value = "";
+                    document.getElementById('wd-account').value = "";
+                    document.getElementById('wd-amount').value = "";
+                    document.getElementById('panel-withdraw').style.display = 'none';
+                    document.getElementById('btn-toggle-withdraw').classList.remove('withdraw-active');
+                }
+            });
+        }
+
+        db.ref('financialRequests').on('value', (snapshot) => {
+            refreshP6FinancialRequestsTable(snapshot.val() || {});
+        });
+
+        function refreshP6FinancialRequestsTable(requestsObj) {
+            const tbody = document.getElementById('p6-tx-requests-table-body');
+            if(!tbody) return;
+            tbody.innerHTML = "";
+
+            let pendingList = Object.values(requestsObj).filter(r => r.status === 'Pending');
+
+            if(pendingList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#666; padding:8px;">No pending transactions.</td></tr>`;
+                return;
+            }
+
+            pendingList.forEach(req => {
+                let detailString = "";
+                let actionBtns = "";
+
+                if(req.type === 'Deposit') {
+                    detailString = `<button style="background:#3498db; border:none; border-radius:4px; color:white; font-size:9px; padding:2px 5px; cursor:pointer;" onclick="launchP7ScreenshotTerminal('${req.txId}')">VIEW 📸</button>`;
+                    actionBtns = `
+                        <button style="background:#27ae60; color:white; font-weight:bold; border:none; border-radius:3px; padding:2px 4px; font-size:9px; cursor:pointer;" onclick="processP6FinancialAction('${req.txId}', 'Approve')">Approve</button>
+                        <button style="background:#c0392b; color:white; font-weight:bold; border:none; border-radius:3px; padding:2px 4px; font-size:9px; cursor:pointer;" onclick="processP6FinancialAction('${req.txId}', 'Reject')">Reject</button>
+                    `;
+                } else {
+                    detailString = `${req.bank} - ${req.account}`;
+                    actionBtns = `
+                        <button style="background:#27ae60; color:white; font-weight:bold; border:none; border-radius:3px; padding:2px 4px; font-size:9px; cursor:pointer;" onclick="processP6FinancialAction('${req.txId}', 'Approve')">Approve</button>
+                        <button style="background:#c0392b; color:white; font-weight:bold; border:none; border-radius:3px; padding:2px 4px; font-size:9px; cursor:pointer;" onclick="processP6FinancialAction('${req.txId}', 'Reject')">Reject</button>
+                    `;
+                }
+                
+                let row = `
+                    <tr>
+                        <td style="color:${req.type==='Deposit'?'#27ae60':'#9b59b6'}; font-weight:bold;">${req.type}</td>
+                        <td style="color:#aaa;">${req.userId}</td>
+                        <td style="color:#fff; font-weight:bold;">${req.amount} Birr</td>
+                        <td>${detailString}</td>
+                        <td>${actionBtns}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function launchP7ScreenshotTerminal(txId) {
+            db.ref(`financialRequests/${txId}`).once('value', (snapshot) => {
+                let req = snapshot.val();
+                if(!req || !req.screenshot) { alert("Screenshot fakkii argachuun hin danda'amne!"); return; }
+
+                document.getElementById('p7-user-info-meta').innerHTML = `User: <b>${req.username}</b> (${req.userId}) | Hanga: <b>${req.amount} Birr</b>`;
+                const imgTag = document.getElementById('p7-main-display-image');
+                const fallback = document.getElementById('p7-fallback-text');
+                
+                imgTag.src = req.screenshot;
+                imgTag.style.display = "inline-block";
+                fallback.style.display = "none";
+
+                switchAdminSubScreen('admin-screenshot-screen', document.getElementById('tab-adm-screenshot'));
+            });
+        }
+
+        function processP6FinancialAction(txId, action) {
+            db.ref(`financialRequests/${txId}`).once('value', (snapshot) => {
+                let req = snapshot.val();
+                if(!req) return;
+
+                if(action === 'Approve') {
+                    if(req.type === 'Deposit') {
+                        db.ref(`users/${req.userId}/balance`).transaction((currentBal) => {
+                            return (currentBal || 0) + req.amount;
+                        }, (err, comm) => {
+                            if(comm) {
+                                db.ref(`financialRequests/${txId}`).update({ status: 'Approved' });
+                                db.ref('broadcast').set(`[FINANCE]: Deposit of ${req.amount} Birr approved for user ${req.username}.`);
+                                alert("Deposit Approved!");
+                            }
+                        });
+                    } else if(req.type === 'Withdraw') {
+                        db.ref(`users/${req.userId}/balance`).transaction((currentBal) => {
+                            return Math.max(0, (currentBal || 0) - req.amount);
+                        }, (err, comm) => {
+                            if(comm) {
+                                db.ref(`financialRequests/${txId}`).update({ status: 'Approved' });
+                                db.ref('broadcast').set(`[FINANCE]: Withdrawal of ${req.amount} Birr approved for user ${req.username}.`);
+                                alert("Withdrawal Approved!");
+                            }
+                        });
+                    }
+                } else {
+                    db.ref(`financialRequests/${txId}`).update({ status: 'Rejected' });
+                    alert("Transaction Rejected!");
+                }
+            });
+        }
+
+        if (tgUser && userProfile.userId !== "GUEST-USER") {
+            db.ref(`users/${userProfile.userId}`).update({ username: userProfile.telegramHandle });
+            db.ref(`users/${userProfile.userId}`).on('value', (snapshot) => {
+                let uData = snapshot.val();
+                if (uData) { gameState.userWallet = parseFloat(uData.balance || 0); updateUIVisuals(); }
+            });
+        }
+
+        db.ref('gameConfig').on('value', (snapshot) => {
+            let data = snapshot.val();
+            if(data) {
+                config.betAmount = data.betAmount || 10;
+                config.commissionPct = data.commissionPct || 10;
+                config.wheelRange = data.wheelRange || 12;
+                config.countdownSec = data.countdownSec || 60;
+                document.getElementById('adm-setting-range-lbl').innerText = config.wheelRange;
+                document.getElementById('adm-setting-bet-lbl').innerText = config.betAmount;
+                document.getElementById('adm-setting-comm-lbl').innerText = config.commissionPct;
+                document.getElementById('adm-setting-timer-lbl').innerText = config.countdownSec;
+                generateKeypad(); drawWheel(); buildAdminLiveTrackerMatrix(); updateUIVisuals();
+            }
+        });
+
+        db.ref('soldTickets').on('value', (snapshot) => {
+            gameState.soldTickets = snapshot.val() || {};
+            gameState.totalTicketsSold = Object.keys(gameState.soldTickets).length;
+            let grossRevenue = gameState.totalTicketsSold * config.betAmount;
+            let commissionCut = (config.commissionPct / 100) * grossRevenue;
+            gameState.winnerPrize = grossRevenue - commissionCut;
+            
+            if(document.getElementById('p8-tickets-count')) {
+                document.getElementById('p8-tickets-count').innerText = gameState.totalTicketsSold;
+            }
+            
+            generateKeypad(); 
+            buildAdminLiveTrackerMatrix(); 
+            updateUIVisuals(); 
+            refreshP5SalesTable();
+            updateUserOwnTicketsDisplay();
+        });
+
+        db.ref('globalGameStatus').on('value', (snapshot) => {
+            let status = snapshot.val() || "Open";
+            gameState.gameStatus = status;
+            applyGlobalGameGateSyncUI(status);
+        });
+
+        db.ref('automationMode').on('value', (snapshot) => {
+            let mode = snapshot.val() || "Automatic";
+            gameState.automationMode = mode;
+            syncAutomationModeSystemUI(mode);
+        });
+
+        db.ref('wheelState').on('value', (snapshot) => {
+            let data = snapshot.val();
+            if(data) {
+                gameState.gameId = data.gameId || 1;
+                if(data.isSpinning && !gameState.isSpinning) executeWheelSpinningSequence(data.targetRotation, data.winner);
+            }
+        });
+
+        db.ref('broadcast').on('value', (snapshot) => { let msg = snapshot.val(); if(msg) logMessage(msg); });
+        db.ref('gameHistory').on('value', (snapshot) => { let data = snapshot.val(); if(data) { gameHistoryData = Object.values(data); renderGameHistoryView(); } });
+        
+        db.ref('engagement').on('value', (snapshot) => {
+            let data = snapshot.val();
+            if(data) {
+                gameState.likes = data.likes || 0; gameState.dislikes = data.dislikes || 0;
+                document.getElementById('like-counter').innerText = gameState.likes;
+                document.getElementById('dislike-counter').innerText = gameState.dislikes;
+            }
+        });
+
+        db.ref('pinnedAnnouncement').on('value', (snapshot) => {
+            let pinText = snapshot.val();
+            const pinnedBox = document.getElementById('user-pinned-box');
+            const pinnedTextSpan = document.getElementById('user-pinned-text');
+            if (pinText && pinText.trim() !== "") { pinnedBox.style.display = 'block'; pinnedTextSpan.innerText = pinText; } 
+            else { pinnedBox.style.display = 'none'; }
+        });
+
+        db.ref('timerSync').on('value', (snapshot) => {
+            let tState = snapshot.val();
+            if (tState) {
+                gameState.timeLeft = tState.timeLeft;
+                document.getElementById('timer-display').innerText = gameState.timeLeft;
+                if(document.getElementById('p8-timer-view')) {
+                    document.getElementById('p8-timer-view').innerText = gameState.timeLeft;
+                }
+                
+                if(gameState.automationMode === "Automatic") {
+                    if (!gameState.timerInterval) startLocalTimerEngine();
+                } else {
+                    if(gameState.timerInterval) {
+                        clearInterval(gameState.timerInterval);
+                        gameState.timerInterval = null;
+                    }
+                }
+            }
+        });
+
+        function applyGlobalGameGateSyncUI(status) {
+            const lockOverlay = document.getElementById('global-lock-screen');
+            const mainNav = document.getElementById('public-main-nav');
+            const adminBtn = document.getElementById('admin-toggle-game-gate-btn');
+
+            if(adminBtn) {
+                if(status === "Closed") {
+                    adminBtn.style.background = "#27ae60";
+                    adminBtn.innerText = "🔓 TAPHA BANI (OPEN GAME)";
+                } else {
+                    adminBtn.style.background = "#c0392b";
+                    adminBtn.innerText = "🔒 TAPHA CUFI (CLOSE GAME)";
+                }
+            }
+
+            if (!gameState.isAdminMode) {
+                if (status === "Closed") {
+                    lockOverlay.style.display = "flex";
+                    mainNav.style.display = "none";
+                    document.querySelectorAll('.screen-container').forEach(sc => sc.style.display = 'none');
+                } else {
+                    lockOverlay.style.display = "none";
+                    mainNav.style.display = "flex";
+                    document.querySelectorAll('.screen-container').forEach(sc => sc.style.display = 'none');
+                    document.getElementById(currentActiveUserScreenId).style.display = 'flex';
+                }
+            } else {
+                lockOverlay.style.display = "none";
+            }
+        }
+
+        function toggleGlobalGameGate() {
+            let nextStatus = (gameState.gameStatus === "Open") ? "Closed" : "Open";
+            db.ref('globalGameStatus').set(nextStatus, (err) => {
+                if(!err) {
+                    db.ref('broadcast').set(`[SYSTEM NOTICE]: Game status changed to ${nextStatus.toUpperCase()} by Admin.`);
+                }
+            });
+        }
+
+        // P8 AUTOMATION ENGINE CONTROLLERS
+        function changeSystemAutomationMode(modeSelected) {
+            db.ref('automationMode').set(modeSelected, (err) => {
+                if(!err) {
+                    if(modeSelected === "Manual") {
+                        db.ref('timerSync').update({ status: "paused" });
+                    } else {
+                        db.ref('timerSync').update({ timeLeft: config.countdownSec, status: "running" });
+                    }
+                    db.ref('broadcast').set(`[SYSTEM]: Mode updated to ${modeSelected.toUpperCase()} terminal.`);
+                }
+            });
+        }
+
+        function syncAutomationModeSystemUI(mode) {
+            const lbl = document.getElementById('p8-current-mode-status');
+            const btnAuto = document.getElementById('p8-btn-auto');
+            const btnManual = document.getElementById('p8-btn-manual');
+            const p3SpinBtn = document.getElementById('p3-manual-spin-btn');
+
+            if(!lbl) return;
+            lbl.innerText = `${mode.toUpperCase()} MODE`;
+
+            if(mode === "Automatic") {
+                lbl.style.color = "#27ae60";
+                btnAuto.classList.add('active-auto');
+                btnManual.classList.remove('active-manual');
+                if(p3SpinBtn) p3SpinBtn.style.display = "none"; // Hide explicit actions on auto
+            } else {
+                lbl.style.color = "#d35400";
+                btnAuto.classList.remove('active-auto');
+                btnManual.classList.add('active-manual');
+                if(p3SpinBtn) p3SpinBtn.style.display = "block";
+            }
+        }
+
+        function switchUserScreen(screenId, buttonEl) {
+            if(gameState.isAdminMode || gameState.gameStatus === "Closed") return; 
+            currentActiveUserScreenId = screenId; 
+            document.querySelectorAll('.screen-container').forEach(sc => sc.style.display = 'none');
+            document.getElementById(screenId).style.display = 'flex';
+            document.querySelectorAll('#public-main-nav .tab-btn').forEach(btn => btn.classList.remove('active'));
+            if(buttonEl) buttonEl.classList.add('active');
+            if(screenId === 'live-wheel-screen') drawWheel(); 
+        }
+
+        function switchAdminSubScreen(screenId, buttonEl) {
+            document.querySelectorAll('.screen-container').forEach(sc => sc.style.display = 'none');
+            document.getElementById(screenId).style.display = 'flex';
+            document.querySelectorAll('#admin-internal-nav .admin-tab-item').forEach(btn => btn.classList.remove('active'));
+            if(buttonEl) buttonEl.classList.add('active');
+            if(screenId === 'admin-control-screen') buildAdminLiveTrackerMatrix();
+            if(screenId === 'admin-database-screen') refreshP5SalesTable();
+        }
+
+        // --- ACTIVE SESSION MANAGEMENT (localStorage) CONTROL ---
+        function accessProtectedAdminMode() {
+            // 1. Yoo session-n admin duraan active ta'e, battalatti password malee saqi
+            if (localStorage.getItem("admin_session") === "active") {
+                gameState.isAdminMode = true;
+                document.getElementById('public-main-nav').style.display = 'none';
+                document.getElementById('global-lock-screen').style.display = 'none'; 
+                document.getElementById('admin-internal-nav').style.display = 'flex';
+                switchAdminSubScreen('admin-control-screen', document.getElementById('tab-adm-ctrl'));
+                return;
+            }
+            
+            // 2. Yoo session hin jirre, password gaafadhu
+            let pass = prompt("Enter Admin Secret Password:");
+            if (pass === ADMIN_PASSWORD) {
+                localStorage.setItem("admin_session", "active"); // Session jabaa dabalata
+                gameState.isAdminMode = true;
+                document.getElementById('public-main-nav').style.display = 'none';
+                document.getElementById('global-lock-screen').style.display = 'none'; 
+                document.getElementById('admin-internal-nav').style.display = 'flex';
+                switchAdminSubScreen('admin-control-screen', document.getElementById('tab-adm-ctrl'));
+                db.ref('broadcast').set(`[SYSTEM]: Admin verified and accessed Panel.`);
+            } else if (pass !== null) { 
+                alert("Incorrect Password!"); 
+            }
+        }
+
+        function exitAdminSessionMode() {
+            // Hanga inni EXIT cuqaasutti session ni tura, garuu asirratti session ni dhabamsiifna
+            localStorage.removeItem("admin_session"); 
+            gameState.isAdminMode = false;
+            document.getElementById('admin-internal-nav').style.display = 'none';
+            
+            if (gameState.gameStatus === "Closed") {
+                applyGlobalGameGateSyncUI("Closed");
+            } else {
+                document.getElementById('public-main-nav').style.display = 'flex';
+                switchUserScreen(currentActiveUserScreenId, document.getElementById('tab-user-terminal'));
+            }
+        }
+
+        function buildAdminLiveTrackerMatrix() {
+            const matrixBox = document.getElementById('admin-live-tickets-matrix');
+            if(!matrixBox) return; matrixBox.innerHTML = "";
+            for(let i = 1; i <= config.wheelRange; i++) {
+                const tag = document.createElement('div');
+                if(gameState.soldTickets[i]) {
+                    let textHandle = (typeof gameState.soldTickets[i] === 'object') ? gameState.soldTickets[i].username : gameState.soldTickets[i];
+                    tag.className = "matrix-tag bought"; tag.innerHTML = `#${i}<br><span style="font-size:8px;">${textHandle}</span>`;
+                } else {
+                    tag.className = "matrix-tag available"; tag.innerHTML = `#${i}<br><span style="font-size:8px; color:#555;">TBA</span>`;
+                }
+                matrixBox.appendChild(tag);
+            }
+        }
+
+        function refreshP5SalesTable() {
+            const tbody = document.getElementById('p5-sales-table-body');
+            if(!tbody) return; tbody.innerHTML = "";
+            let ticketsArray = Object.keys(gameState.soldTickets);
+            if (ticketsArray.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#888; padding:5px;">Round kanaan tikkeetiin bitame hin jiru!</td></tr>`;
+                return;
+            }
+            ticketsArray.sort((a, b) => parseInt(a) - parseInt(b));
+            ticketsArray.forEach(ticketNum => {
+                let ticketData = gameState.soldTickets[ticketNum];
+                let tgName = (typeof ticketData === 'object' && ticketData !== null) ? ticketData.username : ticketData;
+                let uId = (typeof ticketData === 'object' && ticketData !== null) ? ticketData.userId : "Syncing...";
+                tbody.innerHTML += `<tr><td style="color:#f1c40f;">Round ${gameState.gameId}</td><td style="color:#3498db;">${tgName}</td><td style="color:#aaa;">${uId}</td><td style="color:#2ecc71; font-weight:bold;">#${ticketNum}</td></tr>`;
+            });
+        }
+
+        function updateUserOwnTicketsDisplay() {
+            const listContainer = document.getElementById('my-tickets-display-list');
+            const countSpan = document.getElementById('my-tickets-count');
+            if (!listContainer) return;
+
+            listContainer.innerHTML = "";
+            let myTickets = [];
+
+            Object.keys(gameState.soldTickets).forEach(ticketNum => {
+                let ticketData = gameState.soldTickets[ticketNum];
+                if (typeof ticketData === 'object' && ticketData !== null) {
+                    if (String(ticketData.userId) === String(userProfile.userId)) {
+                        myTickets.push(ticketNum);
+                    }
+                }
+            });
+
+            myTickets.sort((a, b) => parseInt(a) - parseInt(b));
+            countSpan.innerText = myTickets.length;
+
+            if (myTickets.length === 0) {
+                listContainer.innerHTML = `<span style="color:#666; font-size:11px;">Hanga ammaatti tikkeetiin bitame hin jiru.</span>`;
+                return;
+            }
+
+            myTickets.forEach(num => {
+                const badge = document.createElement('span');
+                badge.className = 'user-ticket-badge';
+                badge.innerText = `#${num}`;
+                listContainer.appendChild(badge);
+            });
+        }
+
+        function adjustWheelRangeSetting(delta) { db.ref('gameConfig').update({ wheelRange: Math.max(4, Math.min(24, config.wheelRange + delta)) }); }
+        function adjustFinancesSetting(type, delta) {
+            if (type === 'bet') db.ref('gameConfig').update({ betAmount: Math.max(5, config.betAmount + delta) });
+            if (type === 'comm') db.ref('gameConfig').update({ commissionPct: Math.max(0, Math.min(100, config.commissionPct + delta)) });
+        }
+
+        function executeDeepSearchUserData() {
+            const query = document.getElementById('admin-search-user-input').value.trim().toLowerCase();
+            const Math_Box = document.getElementById('search-results-display-engine');
+            if(query === "") return;
+            db.ref('users').once('value', (snapshot) => {
+                let usersList = snapshot.val() || {}; let foundKey = null; let foundData = null;
+                for (let key in usersList) { if (key.toLowerCase() === query || (usersList[key].username && usersList[key].username.toLowerCase() === query)) { foundKey = key; foundData = usersList[key]; break; } }
+                if (foundData) {
+                    let userActiveTickets = []; Object.keys(gameState.soldTickets).forEach(k => { let nameTk = (typeof gameState.soldTickets[k] === 'object') ? gameState.soldTickets[k].username : gameState.soldTickets[k]; if(nameTk === foundData.username) userActiveTickets.push(`#${k}`); });
+                    Math_Box.innerHTML = `<b>User ID:</b> ${foundKey} | <b>Wallet:</b> ${parseFloat(foundData.balance || 0).toFixed(2)} birr<br><b>Tickets:</b> ${userActiveTickets.length > 0 ? userActiveTickets.join(', ') : 'None'}`;
+                } else { Math_Box.innerHTML = `<span style="color:#c0392b;">User not found</span>`; }
+            });
+        }
+
+        function executeQuickWalletLookupOnly() {
+            const query = document.getElementById('admin-search-user-input').value.trim().toLowerCase();
+            const resultsBox = document.getElementById('search-results-display-engine');
+            if(query === "") return;
+            db.ref('users').once('value', (snapshot) => {
+                let usersList = snapshot.val() || {}; let foundData = null;
+                for (let key in usersList) { if (key.toLowerCase() === query || (usersList[key].username && usersList[key].username.toLowerCase() === query)) { foundData = usersList[key]; break; } }
+                if (foundData) { resultsBox.innerHTML = `<div style="color:#2ecc71; font-weight:bold; text-align:center;">Balance: ${parseFloat(foundData.balance || 0).toFixed(2)} birr</div>`; }
+                else { resultsBox.innerHTML = `<span style="color:#c0392b;">Not Found</span>`; }
+            });
+        }
+
+        function modifyUserBalanceDirectly(actionType) {
+            const uId = document.getElementById('adm-mod-userid').value.trim();
+            const amount = parseFloat(document.getElementById('adm-mod-amount').value);
+            if(uId === "" || isNaN(amount)) return;
+            db.ref(`users/${uId}`).once('value', (snapshot) => {
+                if(!snapshot.exists()) return;
+                db.ref(`users/${uId}/balance`).transaction((bal) => { return (actionType==='add')?(bal||0)+amount:(bal||0)-amount; }, () => { alert("Done!"); });
+            });
+        }
+
+        function dangerZoneWipeTicketsOnly() { if(confirm("Wipe tickets?")) db.ref('soldTickets').remove(); }
+        function dangerZoneFullSystemReset() { if(confirm("Reset all?")) { db.ref('soldTickets').remove(); db.ref('financialRequests').remove(); db.ref('wheelState').set({ gameId: 1, isSpinning: false, targetRotation: 90, winner: 0 }); } }
+
+        function renderGameHistoryView() {
+            const container = document.getElementById('history-logs-container'); if(!container) return; container.innerHTML = "";
+            for(let i = gameHistoryData.length - 1; i >= 0; i--) {
+                let item = gameHistoryData[i]; container.innerHTML += `<div class="history-item"><strong>🎯 ROUND ${item.round}:</strong> Winner <span style="color:#2ecc71;">${item.username}</span> (#${item.luckyNumber}) Mo'ateera!</div>`;
+            }
+        }
+
+        function p6ApproveAndSaveWinnerWinnings() {
+            if(!currentActiveRoundWinner) return;
+            const wUid = currentActiveRoundWinner.userId; const wPrize = currentActiveRoundWinner.prize;
+            db.ref(`users/${wUid}/balance`).transaction((bal) => { return (bal || 0) + wPrize; }, (err, comm) => {
+                if(comm) {
+                    let hRef = db.ref('gameHistory').push(); hRef.set({ round: currentActiveRoundWinner.round, username: currentActiveRoundWinner.username, luckyNumber: currentActiveRoundWinner.luckyNumber, prize: wPrize });
+                    db.ref('broadcast').set(`[APPROVED]: ${currentActiveRoundWinner.username} won ${wPrize} Birr!`);
+                    currentActiveRoundWinner = null; document.getElementById('p6-approve-btn').style.display = 'none';
+                    document.getElementById('p6-no-winner-msg').style.display = 'block'; document.getElementById('p6-no-winner-msg').innerText = "Kaffaltiin raawwateera!";
+                }
+            });
+        }
+
+        function transmitLiveBroadcast() { const txt = document.getElementById('admin-broadcast-msg'); if(txt.value.trim()==="") return; db.ref('broadcast').set(`[ADMIN LIVE]: ${txt.value}`); txt.value = ""; }
+        function triggerEngagement(type) { let up = {}; if(type==='like') up['likes']=gameState.likes+1; else up['dislikes']=gameState.dislikes+1; db.ref('engagement').update(up); }
+        function submitUserReplyText() { const txt = document.getElementById('user-reply-text'); if(txt.value.trim()==="") return; db.ref('broadcast').set(`[${userProfile.telegramHandle}]: ${txt.value}`); txt.value = ""; }
+
+        function executeAdminLiveSpinAction() {
+            if (gameState.isSpinning || gameState.gameStatus === "Closed") return;
+            let targetRot = gameState.currentRotation + Math.floor(Math.random() * 360) + 4320;
+            const numSegments = config.wheelRange; const segmentArc = 360 / numSegments;
+            const actualDegree = (targetRot % 360); const winningIndex = Math.floor(((90 - actualDegree + 360) % 360) / segmentArc);
+            const winner = ((winningIndex) % numSegments) + 1;
+            db.ref('wheelState').set({ gameId: gameState.gameId, isSpinning: true, targetRotation: targetRot, winner: winner });
+        }
+
+        function initGame() {
+            document.getElementById('display-user-id').innerText = userProfile.userId;
+            document.getElementById('display-tg-username').innerText = userProfile.telegramHandle;
+            
+            // 3. Peejiin yeroo reload ta'u admin-ni duraan seenee yoo ture ofumaan galchi
+            if (localStorage.getItem("admin_session") === "active") {
+                gameState.isAdminMode = true;
+                document.getElementById('public-main-nav').style.display = 'none';
+                document.getElementById('global-lock-screen').style.display = 'none'; 
+                document.getElementById('admin-internal-nav').style.display = 'flex';
+                switchAdminSubScreen('admin-control-screen', document.getElementById('tab-adm-ctrl'));
+            }
+            
+            generateKeypad(); drawWheel(); updateUIVisuals();
+        }
+
+        function generateKeypad() {
+            const keypad = document.getElementById('ticket-keypad'); if(!keypad) return; keypad.innerHTML = '';
+            for (let i = 1; i <= config.wheelRange; i++) {
+                const btn = document.createElement('button'); btn.className = 'key-btn'; btn.innerText = i; btn.id = `key-${i}`;
+                if (gameState.soldTickets[i]) { btn.className = 'key-btn sold'; btn.disabled = true; } 
+                else { btn.onclick = () => instantPurchaseTicket(i); }
+                keypad.appendChild(btn);
+            }
+        }
+
+        function drawWheel(highlightIndex = -1) {
+            if(!canvas) return; const numSegments = config.wheelRange; const anglePerSegment = (2 * Math.PI) / numSegments;
+            ctx.clearRect(0, 0, canvas.width, canvas.height); const colors = ['#c0392b', '#2c3e50'];
+            for (let i = 0; i < numSegments; i++) {
+                const angle = i * anglePerSegment; ctx.beginPath(); ctx.fillStyle = (i === highlightIndex) ? "#f1c40f" : colors[i % 2];
+                ctx.moveTo(canvas.width/2, canvas.height/2); ctx.arc(canvas.width/2, canvas.height/2, canvas.width/2, angle, angle + anglePerSegment); ctx.fill(); ctx.stroke();
+                ctx.save(); ctx.translate(canvas.width/2, canvas.height/2); ctx.rotate(angle + anglePerSegment / 2); ctx.textAlign = "right";
+                ctx.fillStyle = (i === highlightIndex) ? "#000" : "#fff"; ctx.fillText(i + 1, (canvas.width/2) - 15, 4); ctx.restore();
+            }
+            canvas.style.transform = `rotate(${gameState.currentRotation}deg)`;
+        }
+
+        function instantPurchaseTicket(chosenNumber) {
+            if (gameState.gameStatus === "Closed") { alert("Tapha yeroof cufameera!"); return; }
+            if (gameState.soldTickets[chosenNumber]) return;
+            if (userProfile.userId === "GUEST-USER") { alert("Bot banaa!"); return; }
+            if (gameState.userWallet < config.betAmount) { alert("Balance insufficient!"); return; }
+            db.ref(`users/${userProfile.userId}/balance`).transaction((bal) => { if(bal >= config.betAmount) return bal - config.betAmount; }, (err, comm) => {
+                if (comm) db.ref('soldTickets/' + chosenNumber).set({ username: userProfile.telegramHandle, userId: userProfile.userId });
+            });
+        }
+
+        function updateUIVisuals() {
+            document.getElementById('user-wallet').innerText = gameState.userWallet.toFixed(2);
+            document.getElementById('current-bet-cost').innerText = config.betAmount.toFixed(2);
+            document.getElementById('prize-pool').innerText = gameState.winnerPrize.toFixed(2);
+        }
+        
+        function logMessage(msg) { broadcastLogs.innerHTML = `<div>${msg}</div>` + broadcastLogs.innerHTML; }
+        
+        function executeWheelSpinningSequence(targetRot, winner) {
+            gameState.isSpinning = true;
+            if(gameState.isAdminMode) { document.getElementById('admin-internal-nav').style.display = 'none'; document.getElementById('public-main-nav').style.display = 'flex'; gameState.isAdminMode = false; }
+            
+            document.getElementById('global-lock-screen').style.display = 'none';
+            document.getElementById('public-main-nav').style.display = 'flex';
+            
+            switchUserScreen('live-wheel-screen', document.getElementById('tab-live-wheel'));
+            document.getElementById('result').innerText = "SPINNING...";
+            gameState.currentRotation = targetRot; canvas.style.transform = `rotate(${targetRot}deg)`;
+            setTimeout(() => { processGameWinner(winner); }, 5000); 
+        }
+
+        function processGameWinner(winnerTicket) {
+            let ticketData = gameState.soldTickets[winnerTicket]; drawWheel(winnerTicket - 1);
+            let finalWinnerName = ticketData ? ((typeof ticketData === 'object') ? ticketData.username : ticketData) : "No Winner";
+            let finalPrize = parseFloat(gameState.winnerPrize.toFixed(0));
+            document.getElementById('result').innerText = `WINNER: ${finalWinnerName} (#${winnerTicket})`;
+            
+            if(ticketData) {
+                db.ref('users').once('value', (snapshot) => {
+                    let uData = snapshot.val() || {};
+                    let winnerUid = (typeof ticketData === 'object' && ticketData.userId) ? ticketData.userId : "unknown";
+                    let currentBal = parseFloat(uData[winnerUid]?.balance || 0);
+                    
+                    currentActiveRoundWinner = { userId: winnerUid, username: finalWinnerName, prize: finalPrize, luckyNumber: winnerTicket, round: gameState.gameId };
+                    
+                    document.getElementById('adm-winner-id-log').innerHTML = `User ID: <b>${winnerUid}</b>`;
+                    document.getElementById('adm-winner-tg-log').innerHTML = `Telegram: <b>${finalWinnerName}</b>`;
+                    document.getElementById('adm-winner-prize-log').innerHTML = `Prize: <b>${finalPrize} birr</b>`;
+                    
+                    document.getElementById('p6-tg-username').innerText = finalWinnerName;
+                    document.getElementById('p6-user-id').innerText = winnerUid;
+                    document.getElementById('p6-game-round').innerText = gameState.gameId;
+                    document.getElementById('p6-lucky-number').innerText = `#${winnerTicket}`;
+                    document.getElementById('p6-prize-amount').innerText = `${finalPrize.toFixed(2)} birr`;
+                    document.getElementById('p6-current-wallet').innerText = `${currentBal.toFixed(2)} birr`;
+                    
+                    // ENGINE ACTION SEPARATION BY MODE
+                    if (gameState.automationMode === "Automatic") {
+                        // 1. Ofumaan Wallet irratti dabalama
+                        db.ref(`users/${winnerUid}/balance`).transaction((bal) => { return (bal || 0) + finalPrize; }, (err, comm) => {
+                            if(comm) {
+                                let hRef = db.ref('gameHistory').push(); 
+                                hRef.set({ round: gameState.gameId, username: finalWinnerName, luckyNumber: winnerTicket, prize: finalPrize });
+                                db.ref('broadcast').set(`[AUTO ENGINE]: Winner ${finalWinnerName} credited ${finalPrize} Birr successfully.`);
+                                
+                                // 2. Ofumaan seconds 5 booda keypad refresh godha round itti aanuf
+                                setTimeout(() => {
+                                    autoRefreshGameNextRound();
+                                    db.ref('timerSync').update({ timeLeft: config.countdownSec, status: "running" });
+                                    db.ref('broadcast').set(`[AUTO ENGINE]: Next Round ${gameState.gameId + 1} is now ready!`);
+                                }, 5000);
+                            }
+                        });
+                    } else {
+                        // Manual Mode: Setup manual workflow elements
+                        document.getElementById('p6-approve-btn').style.display = 'block'; 
+                        document.getElementById('p6-no-winner-msg').style.display = 'none';
+                    }
+                });
+            } else {
+                if (gameState.automationMode === "Automatic") {
+                    setTimeout(() => {
+                        autoRefreshGameNextRound();
+                        db.ref('timerSync').update({ timeLeft: config.countdownSec, status: "running" });
+                    }, 5000);
+                } else {
+                    document.getElementById('p6-no-winner-msg').style.display = 'block'; 
+                    document.getElementById('p6-approve-btn').style.display = 'none';
+                }
+            }
+
+            db.ref('wheelState').once('value', () => { 
+                setTimeout(() => { 
+                    gameState.isSpinning = false; 
+                    db.ref('wheelState').update({ isSpinning: false }); 
+                    
+                    // 4. Yoo spin-ni xumurame admin sun session qaba ta'e, gara admin-itti deebisi (refresh malee)
+                    if (localStorage.getItem("admin_session") === "active") {
+                        gameState.isAdminMode = true;
+                        document.getElementById('public-main-nav').style.display = 'none';
+                        document.getElementById('admin-internal-nav').style.display = 'flex';
+                        switchAdminSubScreen('admin-control-screen', document.getElementById('tab-adm-ctrl'));
+                    } else {
+                        applyGlobalGameGateSyncUI(gameState.gameStatus);
+                    }
+                }, 1000); 
+            });
+        }
+
+        function autoRefreshGameNextRound() {
+            db.ref('soldTickets').remove(); db.ref('wheelState').set({ gameId: gameState.gameId + 1, isSpinning: false, targetRotation: 90, winner: 0 });
+            switchAdminSubScreen('admin-control-screen', document.getElementById('tab-adm-ctrl'));
+        }
+
+        function openDetailedSalesReport() {
+            const tableBody = document.getElementById('sales-table-body'); tableBody.innerHTML = "";
+            let ticketsArray = Object.keys(gameState.soldTickets);
+            if (ticketsArray.length === 0) { tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">No tickets sold.</td></tr>`; } 
+            else {
+                ticketsArray.sort((a, b) => parseInt(a) - parseInt(b));
+                ticketsArray.forEach(ticketNum => {
+                    let nameTk = (typeof gameState.soldTickets[ticketNum] === 'object') ? gameState.soldTickets[ticketNum].username : gameState.soldTickets[ticketNum];
+                    tableBody.innerHTML += `<tr><td>Round ${gameState.gameId}</td><td style="color:#2ecc71; font-weight:bold;">#${ticketNum}</td><td>${nameTk}</td></tr>`;
+                });
+            }
+            document.getElementById('salesReportModal').style.display = 'flex';
+        }
+
+        function startLocalTimerEngine() {
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            gameState.timerInterval = setInterval(() => {
+                if(gameState.automationMode === "Manual") {
+                    clearInterval(gameState.timerInterval);
+                    gameState.timerInterval = null;
+                    return;
+                }
+                
+                if (gameState.timeLeft > 0 && !gameState.isSpinning) { 
+                    if (gameState.isAdminMode || true) { 
+                        // Synchronize down tracking time units
+                        gameState.timeLeft--;
+                        document.getElementById('timer-display').innerText = gameState.timeLeft;
+                        if(document.getElementById('p8-timer-view')) {
+                            document.getElementById('p8-timer-view').innerText = gameState.timeLeft;
+                        }
+                        
+                        // Executing dynamic master countdown writer
+                        if(gameState.isAdminMode) {
+                            db.ref('timerSync').update({ timeLeft: gameState.timeLeft });
+                        }
+                    } 
+                } else if (gameState.timeLeft <= 0 && !gameState.isSpinning) {
+                    clearInterval(gameState.timerInterval);
+                    gameState.timerInterval = null;
+                    
+                    if (gameState.automationMode === "Automatic") {
+                        executeAdminLiveSpinAction(); // Trigger auto spin execution layout
+                    }
+                }
+            }, 1000);
+        }
+
+        function changeDefaultTimerConfig(delta) { db.ref('gameConfig').update({ countdownSec: Math.max(5, config.countdownSec + delta) }); }
+        function controlLiveTimerAction(action) {
+            if (action === 'start') { db.ref('timerSync').update({ status: "running" }); startLocalTimerEngine(); } 
+            else if (action === 'pause') db.ref('timerSync').update({ status: "paused" });
+            else if (action === 'reset') db.ref('timerSync').update({ timeLeft: config.countdownSec, status: "stopped" });
+        }
+
+        function publishPinnedMessage(type) {
+            if (type === 'set') { const text = document.getElementById('admin-pin-text-input').value; if (text.trim() !== "") db.ref('pinnedAnnouncement').set(text); } 
+            else if (type === 'clear') { db.ref('pinnedAnnouncement').set(""); document.getElementById('admin-pin-text-input').value = ""; }
+        }
+
+        function openAdminContactLink() {
+            const adminTelegramUsername = "Mylottorey";
+            if (window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.openTelegramLink(`https://t.me/${adminTelegramUsername}`);
+            else window.open(`https://t.me/${adminTelegramUsername}`, '_blank');
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
