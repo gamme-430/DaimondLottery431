@@ -1,6 +1,6 @@
 import os
 
-# Proxy dogoggoraan serveriirraa dhufu balleessuuf (Error Proxy furuuf)
+# Proxy dogoggoraan serveriirraa dhufu balleessuuf
 os.environ.pop('http_proxy', None)
 os.environ.pop('https_proxy', None)
 os.environ.pop('HTTP_PROXY', None)
@@ -242,21 +242,12 @@ def process_broadcast(message):
 
     bot.send_message(message.chat.id, f"✅ Ergaan milkiidhaan galeera!\n• Kan ga'e: {success_count}", reply_markup=admin_main_menu())
 
-# ----------------- SERVER AUTO-RESTART LOOP -----------------
-print("🚀 Botiin Railway irratti milkiidhaan ka'eera!")
-
-try:
-    bot.remove_webhook()
-    time.sleep(2)
-    print("✅ Webhook durii qulqullaa'eera.")
-except Exception as e:
-    print(f"⚠️ Webhook balleessuu irratti: {e}")
-
-while True:
+# ----------------- SERVER AUTO-RESTART & CONFLICT FIX -----------------
+if __name__ == '__main__':
     try:
-        print("⏳ Polling jalqabaa jira...")
-        bot.polling(none_stop=True, interval=1, timeout=60)
+        bot.remove_webhook()
+        time.sleep(1)
+        print("🚀 Botiin Railway irratti milkiidhaan ka'eera!")
+        bot.infinity_polling(skip_pending_updates=True)
     except Exception as e:
-        print(f"🔴 Error uumame: {e}. Sekondii 5 booda deebi'ee eegala...")
-        time.sleep(5)
-
+        print(f"🔴 Error uumame: {e}")
