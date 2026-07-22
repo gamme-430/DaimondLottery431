@@ -18,9 +18,8 @@ firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://diamond-lottery-78180-default-rtdb.asia-southeast1.firebasedatabase.app/'
 })
 
-# API Token haaraa (Railway Variable yoo jiraate irraa fudhata, yoo hin jirre kan hardcoded fayyadama)
+# API Token Railway Variables keessaa fudhata
 API_TOKEN = os.environ.get('API_TOKEN')
-
 ADMIN_ID = 365353683
 WEB_APP_URL = 'https://gamme-430.github.io/DaimondLottery431/'
 
@@ -260,3 +259,4 @@ while True:
     except Exception as e:
         print(f"🔴 Error uumame: {e}. Sekondii 5 booda deebi'ee eegala...")
         time.sleep(5)
+
