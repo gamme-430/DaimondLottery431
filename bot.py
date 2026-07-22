@@ -19,7 +19,8 @@ firebase_admin.initialize_app(cred, {
 })
 
 # API Token haaraa (Railway Variable yoo jiraate irraa fudhata, yoo hin jirre kan hardcoded fayyadama)
-API_TOKEN = os.environ.get('API_TOKEN', '8626785598:AAF_O_Uj06SWWA0Npq-q8L_2BfhzhDZdWMs')
+API_TOKEN = os.environ.get('API_TOKEN')
+
 ADMIN_ID = 365353683
 WEB_APP_URL = 'https://gamme-430.github.io/DaimondLottery431/'
 
