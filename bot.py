@@ -242,12 +242,12 @@ def process_broadcast(message):
 
     bot.send_message(message.chat.id, f"✅ Ergaan milkiidhaan galeera!\n• Kan ga'e: {success_count}", reply_markup=admin_main_menu())
 
-# ----------------- SERVER AUTO-RESTART & CONFLICT FIX -----------------
+# ----------------- SERVER AUTO-RESTART -----------------
 if __name__ == '__main__':
     try:
         bot.remove_webhook()
         time.sleep(1)
         print("🚀 Botiin Railway irratti milkiidhaan ka'eera!")
-        bot.infinity_polling(skip_pending_updates=True)
+        bot.infinity_polling()
     except Exception as e:
         print(f"🔴 Error uumame: {e}")
