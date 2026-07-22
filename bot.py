@@ -1,4 +1,10 @@
 import os
+import json
+import time
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+import firebase_admin
+from firebase_admin import credentials, db
 
 # Proxy dogoggoraan serveriirraa dhufu balleessuuf
 os.environ.pop('http_proxy', None)
@@ -6,19 +12,26 @@ os.environ.pop('https_proxy', None)
 os.environ.pop('HTTP_PROXY', None)
 os.environ.pop('HTTPS_PROXY', None)
 
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-import firebase_admin
-from firebase_admin import credentials, db
-import time
-
 # ----------------- FIREBASE INITIALIZATION -----------------
-cred = credentials.Certificate("serviceAccountKey.json")
+firebase_key_env = os.environ.get('FIREBASE_KEY')
+
+if not firebase_key_env:
+    raise ValueError("🔴 FIREBASE_KEY Railway Variables keessatti hin argamne!")
+
+# JSON string gara dictionary-tti jijjiiruu
+cred_dict = json.loads(firebase_key_env)
+
+# Dogoggora Private Key (\n) Railway irratti uumamu sirreessuu
+if "private_key" in cred_dict:
+    cred_dict["private_key"] = cred_dict["private_key"].replace('\\n', '\n')
+
+cred = credentials.Certificate(cred_dict)
+
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://diamond-lottery-78180-default-rtdb.asia-southeast1.firebasedatabase.app/'
 })
 
-# API Token Railway Variables keessaa fudhata
+# API Token & Configuration
 API_TOKEN = os.environ.get('API_TOKEN')
 ADMIN_ID = 365353683
 WEB_APP_URL = 'https://gamme-430.github.io/DaimondLottery431/'
